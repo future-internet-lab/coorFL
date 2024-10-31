@@ -49,30 +49,29 @@ criterion = nn.CrossEntropyLoss()
 
 credentials = pika.PlainCredentials(username, password)
 
+# Read and load dataset
+transform_train = transforms.Compose([
+    transforms.RandomCrop(32, padding=4),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
 
-def train_on_device():
-    # Read and load dataset
-    transform_train = transforms.Compose([
-        transforms.RandomCrop(32, padding=4),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-    ])
+transform_test = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
 
-    transform_test = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-    ])
+trainset = torchvision.datasets.CIFAR10(
+    root='./data', train=True, download=True, transform=transform_train)
 
-    trainset = torchvision.datasets.CIFAR10(
-        root='./data', train=True, download=True, transform=transform_train)
 
-    # number of labels
-    label_counts = [50, 50, 50, 50, 50, 50, 50, 50, 50, 50]
+label_to_indices = defaultdict(list)
+for idx, (_, label) in enumerate(trainset):
+    label_to_indices[label].append(idx)
 
-    label_to_indices = defaultdict(list)
-    for idx, (_, label) in enumerate(trainset):
-        label_to_indices[label].append(idx)
+
+def train_on_device(label_counts):
 
     selected_indices = []
     for label, count in enumerate(label_counts):

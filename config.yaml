@@ -7,6 +7,8 @@ server:
     load: False
     save: False
   validation: False
+  data-mode: even
+  client-selection: True
 
 rabbit:
   address: 127.0.0.1

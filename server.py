@@ -7,6 +7,7 @@ import yaml
 
 import torch
 import requests
+import random
 
 import src.Model
 import src.Log
@@ -33,6 +34,10 @@ save_parameters = config["server"]["parameters"]["save"]
 load_parameters = config["server"]["parameters"]["load"]
 validation = config["server"]["validation"]
 
+# Algorithm
+data_mode = config["server"]["data-mode"]
+client_selection = config["server"]["client-selection"]
+
 log_path = config["log_path"]
 
 
@@ -47,12 +52,14 @@ class Server:
 
         self.total_clients = total_clients
         self.current_clients = 0
-        self.register_clients = 0
-        self.active_clients = 0
         self.responses = {}  # Save response
         self.list_clients = []
-
         self.all_model_parameters = []
+
+        self.label_counts = [[random.randint(0, 1000) for _ in range(10)] for _ in range(total_clients)]
+        self.speeds = [340, 585, 296, 214, 676, 550, 439, 332, 440, 583, 885, 295, 429, 609, 585, 931, 674, 227, 929,
+                       442, 807, 995, 343, 377, 514, 918, 691, 323, 549, 705]
+        self.selected_client = []
 
         self.channel.basic_qos(prefetch_count=1)
         self.channel.basic_consume(queue='rpc_queue', on_message_callback=self.on_request)
@@ -66,27 +73,28 @@ class Server:
         action = message["action"]
         client_id = message["client_id"]
         self.responses[routing_key] = message
-        if str(client_id) not in self.list_clients:
-            self.list_clients.append(str(client_id))
 
         if action == "REGISTER":
-            src.Log.print_with_color(f"[<<<] Received message from client: {message}", "blue")
-            # Save messages from clients
-            self.register_clients += 1
+            if str(client_id) not in self.list_clients:
+                self.list_clients.append(str(client_id))
+                src.Log.print_with_color(f"[<<<] Received message from client: {message}", "blue")
 
             # If consumed all clients - Register for first time
-            if self.register_clients == self.total_clients:
+            if len(self.list_clients) == self.total_clients:
                 src.Log.print_with_color("All clients are connected. Sending notifications.", "green")
+                self.client_selection()
                 self.notify_clients()
+                # self.selected_client = []
         elif action == "NOTIFY":
             src.Log.print_with_color(f"[<<<] Received message from client: {message}", "blue")
-            self.active_clients += 1
+            self.current_clients += 1
 
-            if self.active_clients == self.total_clients:
-                self.active_clients = 0
+            if self.current_clients == len(self.selected_client):
+                self.current_clients = 0
                 src.Log.print_with_color("Received finish training notification", "yellow")
 
-                for client_id in self.list_clients:
+                for i in self.selected_client:
+                    client_id = self.list_clients[i]
                     message = {"action": "PAUSE",
                                "message": "Pause training and please send your parameters",
                                "parameters": None}
@@ -101,7 +109,7 @@ class Server:
                 self.all_model_parameters.append(model_state_dict)
 
             # If consumed all client's parameters
-            if self.current_clients == self.total_clients:
+            if self.current_clients == len(self.selected_client):
                 src.Log.print_with_color("Collected all parameters.", "yellow")
                 if save_parameters:
                     self.avg_all_parameters()
@@ -113,6 +121,7 @@ class Server:
                 # Start a new training round
                 self.num_round -= 1
                 if self.num_round > 0:
+                    self.client_selection()
                     if save_parameters:
                         self.notify_clients()
                     else:
@@ -126,30 +135,34 @@ class Server:
 
     def notify_clients(self, start=True, register=True):
         # Send message to clients when consumed all clients
-        for client_id in self.list_clients:
-            # Read parameters file
+        if start:
             filepath = f'{filename}.pth'
+            # Read parameters file
             state_dict = None
-            if start:
-                if load_parameters and register:
-                    if os.path.exists(filepath):
-                        state_dict = torch.load(filepath, weights_only=False)
-                        src.Log.print_with_color("Model loaded successfully.", "green")
-                    else:
-                        src.Log.print_with_color(f"File {filepath} does not exist.", "yellow")
-
+            if load_parameters and register:
+                if os.path.exists(filepath):
+                    state_dict = torch.load(filepath, weights_only=False)
+            for i in self.selected_client:
+                client_id = self.list_clients[i]
+                if data_mode == "even":
+                    label_counts = [500 for _ in range(10)]
+                else:
+                    label_counts = [random.randint(0, 1000) for _ in range(10)]
                 # Request clients to start training
                 src.Log.print_with_color(f"[>>>] Sent start training request to client {client_id}", "red")
                 response = {"action": "START",
                             "message": "Server accept the connection!",
-                            "parameters": state_dict}
-            else:
+                            "parameters": state_dict,
+                            "label_counts": label_counts}
+                self.send_to_response(client_id, pickle.dumps(response))
+        else:
+            for client_id in self.list_clients:
                 # Request clients to stop process
                 src.Log.print_with_color(f"[>>>] Sent stop training request to client {client_id}", "red")
                 response = {"action": "STOP",
                             "message": "Stop training!",
                             "parameters": None}
-            self.send_to_response(client_id, pickle.dumps(response))
+                self.send_to_response(client_id, pickle.dumps(response))
 
     def start(self):
         self.channel.start_consuming()
@@ -165,6 +178,13 @@ class Server:
             routing_key=reply_queue_name,
             body=message
         )
+
+    def client_selection(self):
+        if client_selection:
+            # TODO: perform client selection with: client speed and num_data
+            self.selected_client = [0,2]
+        else:
+            self.selected_client = [i for i in range(len(self.list_clients))]
 
     def avg_all_parameters(self):
         # Average all client parameters
@@ -226,6 +246,31 @@ def delete_old_queues():
         src.Log.print_with_color(
             f"Failed to fetch queues from RabbitMQ Management API. Status code: {response.status_code}", "yellow")
         return False
+
+
+def avg_parameters(state_dicts):
+    # Average all client parameters
+    avg_state_dict = {}
+    num_models = len(state_dicts)
+
+    for key in state_dicts[0].keys():
+        if state_dicts[0][key].dtype == torch.long:
+            avg_state_dict[key] = state_dicts[0][key].float()
+        else:
+            avg_state_dict[key] = state_dicts[0][key].clone()
+
+        for i in range(1, num_models):
+            if state_dicts[i][key].dtype == torch.long:
+                avg_state_dict[key] += state_dicts[i][key].float()
+            else:
+                avg_state_dict[key] += state_dicts[i][key]
+
+        avg_state_dict[key] /= num_models
+
+        if state_dicts[0][key].dtype == torch.long:
+            avg_state_dict[key] = avg_state_dict[key].long()
+
+    return avg_state_dict
 
 
 if __name__ == "__main__":

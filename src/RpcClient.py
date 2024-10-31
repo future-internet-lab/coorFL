@@ -44,12 +44,14 @@ class RpcClient:
                 self.model.to("cpu")
                 self.model.load_state_dict(parameters)
             # Start training
-            self.train_func()
+            label_counts = self.response["label_counts"]
+            self.train_func(label_counts)
             # Stop training, then send parameters to server
             self.model.to("cpu")
             model_state_dict = self.model.state_dict()
             data = {"action": "UPDATE", "client_id": self.client_id,
-                    "message": "Send parameters to Server", "parameters": model_state_dict}
+                    "message": "Sent parameters to Server", "parameters": model_state_dict}
+            src.Log.print_with_color("[>>>] Client sent parameters to server", "red")
             self.send_to_server(data)
             return True
         elif action == "STOP":
