@@ -1,0 +1,21 @@
+name: Coordinated Federated Learning
+server:
+  num-round: 1
+  clients: 1
+  filename: resnet_model
+  parameters:
+    load: False
+    save: False
+  validation: False
+
+rabbit:
+  address: 127.0.0.1
+  username: admin
+  password: admin
+
+log_path: .
+
+learning:
+  learning-rate: 0.01
+  momentum: 1
+  batch-size: 256
