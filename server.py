@@ -8,6 +8,7 @@ import yaml
 import torch
 import requests
 import random
+import numpy as np
 
 import src.Model
 import src.Log
@@ -40,6 +41,7 @@ client_selection = config["server"]["client-selection"]
 
 log_path = config["log_path"]
 
+num_labels = 10
 
 class Server:
     def __init__(self):
@@ -52,11 +54,15 @@ class Server:
 
         self.total_clients = total_clients
         self.current_clients = 0
+        self.updated_clients = 0
         self.responses = {}  # Save response
         self.list_clients = []
         self.all_model_parameters = []
 
-        self.label_counts = [[random.randint(0, 1000) for _ in range(10)] for _ in range(total_clients)]
+        if data_mode == "even":
+            self.label_counts = [[500 for _ in range(num_labels)] for _ in range(total_clients)]
+        else:
+            self.label_counts = [[random.randint(0, 1000) for _ in range(num_labels)] for _ in range(total_clients)]
         self.speeds = [340, 585, 296, 214, 676, 550, 439, 332, 440, 583, 885, 295, 429, 609, 585, 931, 674, 227, 929,
                        442, 807, 995, 343, 377, 514, 918, 691, 323, 549, 705]
         self.selected_client = []
@@ -102,19 +108,19 @@ class Server:
         elif action == "UPDATE":
             data_message = message["message"]
             src.Log.print_with_color(f"[<<<] Received message from client: {data_message}", "blue")
-            self.current_clients += 1
+            self.updated_clients += 1
             # Save client's model parameters
             if save_parameters:
                 model_state_dict = message["parameters"]
                 self.all_model_parameters.append(model_state_dict)
 
             # If consumed all client's parameters
-            if self.current_clients == len(self.selected_client):
+            if self.updated_clients == len(self.selected_client):
+                self.updated_clients = 0
                 src.Log.print_with_color("Collected all parameters.", "yellow")
                 if save_parameters:
                     self.avg_all_parameters()
                     self.all_model_parameters = []
-                self.current_clients = 0
                 # Test
                 if save_parameters and validation:
                     src.Model.test(filename, self.logger)
@@ -144,17 +150,15 @@ class Server:
                     state_dict = torch.load(filepath, weights_only=False)
             for i in self.selected_client:
                 client_id = self.list_clients[i]
-                if data_mode == "even":
-                    label_counts = [500 for _ in range(10)]
-                else:
-                    label_counts = [random.randint(0, 1000) for _ in range(10)]
                 # Request clients to start training
                 src.Log.print_with_color(f"[>>>] Sent start training request to client {client_id}", "red")
                 response = {"action": "START",
                             "message": "Server accept the connection!",
                             "parameters": state_dict,
-                            "label_counts": label_counts}
+                            "label_counts": self.label_counts[i]}
                 self.send_to_response(client_id, pickle.dumps(response))
+            if data_mode != "even":
+                self.label_counts = [[random.randint(0, 1000) for _ in range(num_labels)] for _ in range(total_clients)]
         else:
             for client_id in self.list_clients:
                 # Request clients to stop process
@@ -180,11 +184,19 @@ class Server:
         )
 
     def client_selection(self):
+        local_speeds = self.speeds[:len(self.list_clients)]
+        num_datas = [np.sum(self.label_counts[i]) for i in range(len(self.list_clients))]
+        total_training_time = np.array(num_datas) / np.array(local_speeds)
+
         if client_selection:
             # TODO: perform client selection with: client speed and num_data
-            self.selected_client = [0,2]
+            self.selected_client = [0, 2]
         else:
             self.selected_client = [i for i in range(len(self.list_clients))]
+
+        # TODO: from client selected, calculate and log training time
+        training_time = np.max([total_training_time[i] for i in self.selected_client])
+        self.logger.log_info(f"Total training time round = {training_time}")
 
     def avg_all_parameters(self):
         # Average all client parameters

@@ -33,6 +33,7 @@ password = config["rabbit"]["password"]
 
 batch_size = config["learning"]["batch-size"]
 lr = config["learning"]["learning-rate"]
+momentum = config["learning"]["momentum"]
 
 device = None
 
@@ -44,7 +45,7 @@ else:
     print(f"Using device: CPU")
 
 model = ResNet50(10)
-optimizer = optim.SGD(model.parameters(), lr=lr)
+optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
 criterion = nn.CrossEntropyLoss()
 
 credentials = pika.PlainCredentials(username, password)

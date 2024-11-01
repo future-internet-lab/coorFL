@@ -19,5 +19,5 @@ log_path: .
 
 learning:
   learning-rate: 0.01
-  momentum: 1
+  momentum: 0.5
   batch-size: 256
