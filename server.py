@@ -12,6 +12,8 @@ import numpy as np
 
 import src.Model
 import src.Log
+from src.Selection import client_selection_algorithm
+from src.Cluster import clustering_algorithm
 
 from requests.auth import HTTPBasicAuth
 
@@ -37,11 +39,13 @@ validation = config["server"]["validation"]
 
 # Algorithm
 data_mode = config["server"]["data-mode"]
-client_selection = config["server"]["client-selection"]
+client_selection_mode = config["server"]["client-selection"]
+client_cluster_mode = config["server"]["client-cluster"]
 
 log_path = config["log_path"]
 
 num_labels = 10
+
 
 class Server:
     def __init__(self):
@@ -188,14 +192,22 @@ class Server:
         num_datas = [np.sum(self.label_counts[i]) for i in range(len(self.list_clients))]
         total_training_time = np.array(num_datas) / np.array(local_speeds)
 
-        if client_selection:
-            # TODO: perform client selection with: client speed and num_data
-            self.selected_client = [0, 2]
+        if client_selection_mode:
+            if client_cluster_mode:
+                num_cluster, labels = clustering_algorithm(self.label_counts)
+                self.selected_client = []
+                for i in range(num_cluster):
+                    cluster_client = [index for index, label in enumerate(labels) if label == i]
+                    self.selected_client += client_selection_algorithm(cluster_client, local_speeds, num_datas)
+            else:
+                self.selected_client = client_selection_algorithm([i for i in range(len(self.list_clients))],
+                                                                   local_speeds, num_datas)
         else:
             self.selected_client = [i for i in range(len(self.list_clients))]
 
-        # TODO: from client selected, calculate and log training time
+        # From client selected, calculate and log training time
         training_time = np.max([total_training_time[i] for i in self.selected_client])
+        self.logger.log_info(f"Active with {len(self.selected_client)} client: {self.selected_client}")
         self.logger.log_info(f"Total training time round = {training_time}")
 
     def avg_all_parameters(self):

@@ -151,9 +151,9 @@ def test(filename, logger):
         correct += pred.eq(target.data.view_as(pred)).long().cpu().sum()
 
     test_loss /= len(test_loader.dataset)
-    print('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(
+    print('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         test_loss, correct, len(test_loader.dataset),
         100.0 * correct / len(test_loader.dataset)))
-    logger.log_info('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(
+    logger.log_info('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         test_loss, correct, len(test_loader.dataset),
         100.0 * correct / len(test_loader.dataset)))

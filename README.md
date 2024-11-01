@@ -75,6 +75,10 @@ server:   # server configuration
     save: False     # allow to save parameters file
                     # if turn on, server will be averaging all parameters
   validation: True  # allow to validate on server-side
+  ### algorithm
+  data-mode: even         # data distribution evenly
+  client-selection: True  # run client selection
+  client-cluster: True    # run client cluster
 
 rabbit:   # RabbitMQ connection configuration
   address: 127.0.0.1    # address

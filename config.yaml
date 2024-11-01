@@ -9,6 +9,7 @@ server:
   validation: False
   data-mode: even
   client-selection: True
+  client-cluster: True
 
 rabbit:
   address: 127.0.0.1
