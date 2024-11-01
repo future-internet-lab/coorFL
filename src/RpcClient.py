@@ -5,13 +5,14 @@ import src.Log
 
 
 class RpcClient:
-    def __init__(self, client_id, model, address, username, password, train_func):
+    def __init__(self, client_id, model, address, username, password, train_func, device):
         self.model = model
         self.client_id = client_id
         self.address = address
         self.username = username
         self.password = password
         self.train_func = train_func
+        self.device = device
 
         self.channel = None
         self.connection = None
@@ -36,19 +37,25 @@ class RpcClient:
         self.response = pickle.loads(body)
         src.Log.print_with_color(f"[<<<] Client received: {self.response['message']}", "blue")
         action = self.response["action"]
-        parameters = self.response["parameters"]
+        state_dict = self.response["parameters"]
 
         if action == "START":
             # Read parameters and load to model
-            if parameters:
-                self.model.to("cpu")
-                self.model.load_state_dict(parameters)
+            if state_dict:
+                if self.device != "cpu":
+                    for key in state_dict:
+                        state_dict[key] = state_dict[key].to(self.device)
+                self.model.load_state_dict(state_dict)
+
             # Start training
             label_counts = self.response["label_counts"]
             self.train_func(label_counts)
+
             # Stop training, then send parameters to server
-            self.model.to("cpu")
             model_state_dict = self.model.state_dict()
+            if self.device != "cpu":
+                for key in model_state_dict:
+                    model_state_dict[key] = model_state_dict[key].to('cpu')
             data = {"action": "UPDATE", "client_id": self.client_id,
                     "message": "Sent parameters to Server", "parameters": model_state_dict}
             src.Log.print_with_color("[>>>] Client sent parameters to server", "red")

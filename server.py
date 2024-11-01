@@ -9,6 +9,7 @@ import torch
 import requests
 import random
 import numpy as np
+from collections import OrderedDict
 
 import src.Model
 import src.Log
@@ -74,7 +75,7 @@ class Server:
         self.channel.basic_qos(prefetch_count=1)
         self.channel.basic_consume(queue='rpc_queue', on_message_callback=self.on_request)
         self.logger = src.Log.Logger(f"{log_path}/app.log")
-        self.logger.log_info("Application start")
+        self.logger.log_info("### Application start ###\n")
         src.Log.print_with_color(f"Server is waiting for {self.total_clients} clients.", "green")
 
     def on_request(self, ch, method, props, body):
@@ -94,21 +95,6 @@ class Server:
                 src.Log.print_with_color("All clients are connected. Sending notifications.", "green")
                 self.client_selection()
                 self.notify_clients()
-                # self.selected_client = []
-        elif action == "NOTIFY":
-            src.Log.print_with_color(f"[<<<] Received message from client: {message}", "blue")
-            self.current_clients += 1
-
-            if self.current_clients == len(self.selected_client):
-                self.current_clients = 0
-                src.Log.print_with_color("Received finish training notification", "yellow")
-
-                for i in self.selected_client:
-                    client_id = self.list_clients[i]
-                    message = {"action": "PAUSE",
-                               "message": "Pause training and please send your parameters",
-                               "parameters": None}
-                    self.send_to_response(client_id, pickle.dumps(message))
         elif action == "UPDATE":
             data_message = message["message"]
             src.Log.print_with_color(f"[<<<] Received message from client: {data_message}", "blue")
@@ -201,7 +187,7 @@ class Server:
                     self.selected_client += client_selection_algorithm(cluster_client, local_speeds, num_datas)
             else:
                 self.selected_client = client_selection_algorithm([i for i in range(len(self.list_clients))],
-                                                                   local_speeds, num_datas)
+                                                                  local_speeds, num_datas)
         else:
             self.selected_client = [i for i in range(len(self.list_clients))]
 
@@ -270,31 +256,6 @@ def delete_old_queues():
         src.Log.print_with_color(
             f"Failed to fetch queues from RabbitMQ Management API. Status code: {response.status_code}", "yellow")
         return False
-
-
-def avg_parameters(state_dicts):
-    # Average all client parameters
-    avg_state_dict = {}
-    num_models = len(state_dicts)
-
-    for key in state_dicts[0].keys():
-        if state_dicts[0][key].dtype == torch.long:
-            avg_state_dict[key] = state_dicts[0][key].float()
-        else:
-            avg_state_dict[key] = state_dicts[0][key].clone()
-
-        for i in range(1, num_models):
-            if state_dicts[i][key].dtype == torch.long:
-                avg_state_dict[key] += state_dicts[i][key].float()
-            else:
-                avg_state_dict[key] += state_dicts[i][key]
-
-        avg_state_dict[key] /= num_models
-
-        if state_dicts[0][key].dtype == torch.long:
-            avg_state_dict[key] = avg_state_dict[key].long()
-
-    return avg_state_dict
 
 
 if __name__ == "__main__":

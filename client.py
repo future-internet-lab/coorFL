@@ -73,7 +73,6 @@ for idx, (_, label) in enumerate(trainset):
 
 
 def train_on_device(label_counts):
-
     selected_indices = []
     for label, count in enumerate(label_counts):
         selected_indices.extend(random.sample(label_to_indices[label], count))
@@ -85,36 +84,19 @@ def train_on_device(label_counts):
     model.to(device)
     model.train()
     for (training_data, label) in tqdm(trainloader):
+        if training_data.size(0) == 1:
+            continue
         training_data = training_data.to(device)
-        optimizer.zero_grad()
         output = model(training_data)
         loss = criterion(output, label)
+        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
-    # Finish epoch training, send notify to server
-    src.Log.print_with_color("[>>>] Finish training!", "red")
-    training_data = {"action": "NOTIFY", "client_id": client_id,
-                     "message": "Finish training!", "validate": None}
-    client.send_to_server(training_data)
-
-    broadcast_queue_name = f'reply_{client_id}'
-    connection = pika.BlockingConnection(pika.ConnectionParameters(address, 5672, '/', credentials))
-    channel = connection.channel()
-    channel.queue_declare(queue=broadcast_queue_name, durable=False)
-    while True:  # Wait for broadcast
-        method_frame, header_frame, body = channel.basic_get(queue=broadcast_queue_name, auto_ack=True)
-        if body:
-            received_data = pickle.loads(body)
-            src.Log.print_with_color(f"[<<<] Received message from server {received_data}", "blue")
-            if received_data["action"] == "PAUSE":
-                break
-        time.sleep(0.5)
 
 
 if __name__ == "__main__":
     src.Log.print_with_color("[>>>] Client sending registration message to server...", "red")
     data = {"action": "REGISTER", "client_id": client_id, "message": "Hello from Client!"}
-    client = RpcClient(client_id, model, address, username, password, train_on_device)
+    client = RpcClient(client_id, model, address, username, password, train_on_device, device)
     client.send_to_server(data)
     client.wait_response()
