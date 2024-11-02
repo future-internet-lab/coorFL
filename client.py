@@ -14,7 +14,7 @@ import torchvision.transforms as transforms
 
 import src.Log
 from src.RpcClient import RpcClient
-from src.Model import ResNet50
+from src.Model import MobileNetV2
 
 parser = argparse.ArgumentParser(description="Split learning framework")
 # parser.add_argument('--id', type=int, required=True, help='ID of client')
@@ -38,7 +38,7 @@ else:
     device = "cpu"
     print(f"Using device: CPU")
 
-model = ResNet50(10)
+model = MobileNetV2()
 criterion = nn.CrossEntropyLoss()
 
 credentials = pika.PlainCredentials(username, password)
@@ -82,6 +82,7 @@ def train_on_device(label_counts, batch_size, lr, momentum):
         if training_data.size(0) == 1:
             continue
         training_data = training_data.to(device)
+        label = label.to(device)
         optimizer.zero_grad()
         output = model(training_data)
         loss = criterion(output, label)
