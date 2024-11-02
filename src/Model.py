@@ -4,6 +4,7 @@ import torchvision
 import torchvision.transforms as transforms
 import torch.nn.functional as F
 
+from tqdm import tqdm
 
 class Block(nn.Module):
     '''expand + depthwise + pointwise'''
@@ -206,7 +207,7 @@ def test(filename, logger):
     model.eval()
     test_loss = 0
     correct = 0
-    for data, target in test_loader:
+    for data, target in tqdm(test_loader):
         output = model(data)
         test_loss += F.nll_loss(output, target, reduction='sum').item()
         pred = output.data.max(1, keepdim=True)[1]  # get the index of the max log-probability
