@@ -9,7 +9,6 @@ import torch
 import requests
 import random
 import numpy as np
-from collections import OrderedDict
 
 import src.Model
 import src.Log
@@ -43,6 +42,11 @@ data_mode = config["server"]["data-mode"]
 client_selection_mode = config["server"]["client-selection"]
 client_cluster_mode = config["server"]["client-cluster"]
 
+# Clients
+batch_size = config["learning"]["batch-size"]
+lr = config["learning"]["learning-rate"]
+momentum = config["learning"]["momentum"]
+
 log_path = config["log_path"]
 
 num_labels = 10
@@ -63,6 +67,7 @@ class Server:
         self.responses = {}  # Save response
         self.list_clients = []
         self.all_model_parameters = []
+        self.avg_state_dict = None
 
         if data_mode == "even":
             self.label_counts = [[500 for _ in range(num_labels)] for _ in range(total_clients)]
@@ -145,7 +150,10 @@ class Server:
                 response = {"action": "START",
                             "message": "Server accept the connection!",
                             "parameters": state_dict,
-                            "label_counts": self.label_counts[i]}
+                            "label_counts": self.label_counts[i],
+                            "batch_size": batch_size,
+                            "lr": lr,
+                            "momentum": momentum}
                 self.send_to_response(client_id, pickle.dumps(response))
             if data_mode != "even":
                 self.label_counts = [[random.randint(0, 1000) for _ in range(num_labels)] for _ in range(total_clients)]
@@ -199,28 +207,24 @@ class Server:
     def avg_all_parameters(self):
         # Average all client parameters
         state_dicts = self.all_model_parameters
-        avg_state_dict = {}
         num_models = len(state_dicts)
 
+        if num_models == 0:
+            return
+
+        self.avg_state_dict = state_dicts[0]
+
         for key in state_dicts[0].keys():
-            if state_dicts[0][key].dtype == torch.long:
-                avg_state_dict[key] = state_dicts[0][key].float()
-            else:
-                avg_state_dict[key] = state_dicts[0][key].clone()
-
             for i in range(1, num_models):
-                if state_dicts[i][key].dtype == torch.long:
-                    avg_state_dict[key] += state_dicts[i][key].float()
-                else:
-                    avg_state_dict[key] += state_dicts[i][key]
+                self.avg_state_dict[key] += state_dicts[i][key]
 
-            avg_state_dict[key] /= num_models
-
-            if state_dicts[0][key].dtype == torch.long:
-                avg_state_dict[key] = avg_state_dict[key].long()
+            if self.avg_state_dict[key].dtype != torch.long:
+                self.avg_state_dict[key] /= num_models
+            else:
+                self.avg_state_dict[key] //= num_models
 
         # Save to files
-        torch.save(avg_state_dict, f'{filename}.pth')
+        torch.save(self.avg_state_dict, f'{filename}.pth')
 
 
 def delete_old_queues():

@@ -1,7 +1,5 @@
-import time
 import pika
 import uuid
-import pickle
 import argparse
 import yaml
 import random
@@ -31,10 +29,6 @@ address = config["rabbit"]["address"]
 username = config["rabbit"]["username"]
 password = config["rabbit"]["password"]
 
-batch_size = config["learning"]["batch-size"]
-lr = config["learning"]["learning-rate"]
-momentum = config["learning"]["momentum"]
-
 device = None
 
 if torch.cuda.is_available():
@@ -45,7 +39,6 @@ else:
     print(f"Using device: CPU")
 
 model = ResNet50(10)
-optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
 criterion = nn.CrossEntropyLoss()
 
 credentials = pika.PlainCredentials(username, password)
@@ -72,7 +65,9 @@ for idx, (_, label) in enumerate(trainset):
     label_to_indices[label].append(idx)
 
 
-def train_on_device(label_counts):
+def train_on_device(label_counts, batch_size, lr, momentum):
+    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=1e-4)
+
     selected_indices = []
     for label, count in enumerate(label_counts):
         selected_indices.extend(random.sample(label_to_indices[label], count))
@@ -87,9 +82,9 @@ def train_on_device(label_counts):
         if training_data.size(0) == 1:
             continue
         training_data = training_data.to(device)
+        optimizer.zero_grad()
         output = model(training_data)
         loss = criterion(output, label)
-        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 

@@ -47,9 +47,13 @@ class RpcClient:
                         state_dict[key] = state_dict[key].to(self.device)
                 self.model.load_state_dict(state_dict)
 
-            # Start training
+            batch_size = self.response["batch_size"]
+            lr = self.response["lr"]
+            momentum = self.response["momentum"]
             label_counts = self.response["label_counts"]
-            self.train_func(label_counts)
+
+            # Start training
+            self.train_func(label_counts, batch_size, lr, momentum)
 
             # Stop training, then send parameters to server
             model_state_dict = self.model.state_dict()
