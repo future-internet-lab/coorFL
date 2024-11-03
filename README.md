@@ -73,6 +73,7 @@ server:   # server configuration
   num-round: 2  # number of training rounds
   clients: 3    # number of FL clients
   model: ResNet50   # class name of DNN model
+  data-name: MNIST  # training data
   parameters:
     load: False     # allow to load parameters file
     save: False     # allow to save parameters file
@@ -128,4 +129,4 @@ If the `*.pth` file exists, the server will read the file and send the parameter
 
 ---
 
-Version 1.3.0
+Version 1.4.0

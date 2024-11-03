@@ -28,6 +28,7 @@ with open('config.yaml', 'r') as file:
 
 total_clients = config["server"]["clients"]
 model_name = config["server"]["model"]
+data_name = config["server"]["data-name"]
 address = config["rabbit"]["address"]
 username = config["rabbit"]["username"]
 password = config["rabbit"]["password"]
@@ -118,7 +119,7 @@ class Server:
                     self.all_model_parameters = []
                 # Test
                 if save_parameters and validation:
-                    src.Model.test(model_name, self.logger)
+                    src.Model.test(model_name, data_name, self.logger)
                 # Start a new training round
                 self.num_round -= 1
                 if self.num_round > 0:
@@ -150,6 +151,7 @@ class Server:
                 response = {"action": "START",
                             "message": "Server accept the connection!",
                             "model_name": model_name,
+                            "data_name": data_name,
                             "parameters": state_dict,
                             "label_counts": self.label_counts[i],
                             "batch_size": batch_size,

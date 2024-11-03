@@ -45,38 +45,35 @@ criterion = nn.CrossEntropyLoss()
 
 credentials = pika.PlainCredentials(username, password)
 
-# Read and load dataset
-transform_train = transforms.Compose([
-    transforms.RandomCrop(32, padding=4),
-    transforms.RandomHorizontalFlip(),
-    transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-])
 
-transform_test = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-])
+def train_on_device(model, data_name, label_counts, batch_size, lr, momentum):
+    if data_name == "MNIST":
+        transform_train = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,))
+        ])
+        train_set = torchvision.datasets.MNIST(root='./data', train=True, download=True, transform=transform_train)
+    elif data_name == "CIFAR10":
+        transform_train = transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        ])
+        train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
 
-trainset = torchvision.datasets.CIFAR10(
-    root='./data', train=True, download=True, transform=transform_train)
-
-
-label_to_indices = defaultdict(list)
-for idx, (_, label) in enumerate(trainset):
-    label_to_indices[label].append(idx)
-
-
-def train_on_device(model, label_counts, batch_size, lr, momentum):
-    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=1e-4)
+    label_to_indices = defaultdict(list)
+    for idx, (_, label) in enumerate(train_set):
+        label_to_indices[label].append(idx)
 
     selected_indices = []
     for label, count in enumerate(label_counts):
         selected_indices.extend(random.sample(label_to_indices[label], count))
 
-    subset = torch.utils.data.Subset(trainset, selected_indices)
-
+    subset = torch.utils.data.Subset(train_set, selected_indices)
     trainloader = torch.utils.data.DataLoader(subset, batch_size=batch_size, shuffle=True)
+
+    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=1e-4)
 
     model.train()
     for (training_data, label) in tqdm(trainloader):

@@ -3,6 +3,7 @@ server:
   num-round: 50
   clients: 2
   model: SimpleCNN
+  data-name: MNIST
   parameters:
     load: False
     save: False
@@ -19,6 +20,6 @@ rabbit:
 log_path: .
 
 learning:
-  learning-rate: 0.01
+  learning-rate: 1e-6
   momentum: 0.5
   batch-size: 256

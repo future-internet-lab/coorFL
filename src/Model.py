@@ -10,10 +10,10 @@ from tqdm import tqdm
 class SimpleCNN(nn.Module):
     def __init__(self):
         super(SimpleCNN, self).__init__()
-        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1)
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
-        self.fc1 = nn.Linear(64 * 8 * 8, 128)
+        self.fc1 = nn.Linear(64 * 7 * 7, 128)
         self.fc2 = nn.Linear(128, 10)
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(0.25)
@@ -23,7 +23,7 @@ class SimpleCNN(nn.Module):
         x = self.pool(x)
         x = self.relu(self.conv2(x))
         x = self.pool(x)
-        x = x.view(-1, 64 * 8 * 8)
+        x = x.view(-1, 64 * 7 * 7)
         x = self.dropout(self.relu(self.fc1(x)))
         x = self.fc2(x)
         return x
@@ -212,22 +212,26 @@ def ResNet152():
     return ResNet(Bottleneck, [3, 8, 36, 3])
 
 
-transform_test = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-])
-
-testset = torchvision.datasets.CIFAR10(
-    root='./data', train=False, download=True, transform=transform_test)
-test_loader = torch.utils.data.DataLoader(
-    testset, batch_size=100, shuffle=False, num_workers=2)
-
-
-def test(model_name, logger):
+def test(model_name, data_name, logger):
     klass = globals().get(model_name)
     if klass is None:
         raise ValueError(f"Class '{model_name}' does not exist.")
     model = klass()
+
+    if data_name == "MNIST":
+        transform_test = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,))
+        ])
+        test_set = torchvision.datasets.MNIST(root='./data', train=False, download=True, transform=transform_test)
+    elif data_name == "CIFAR10":
+        transform_test = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        ])
+        test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
+
+    test_loader = torch.utils.data.DataLoader(test_set, batch_size=100, shuffle=False, num_workers=2)
 
     state_dict = torch.load(f'{model_name}.pth', weights_only=False)
     model.load_state_dict(state_dict)
