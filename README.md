@@ -114,6 +114,12 @@ python server.py
 python client.py
 ```
 
+If using a specific device configuration for the training process, declare it with the `--device` argument when running the command line:
+
+```commandline
+python client.py --device cpu
+```
+
 ## Parameter Files
 
 On the server, the `*.pth` files are saved in the main execution directory of `server.py` after completing one training round.
