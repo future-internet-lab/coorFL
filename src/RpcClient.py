@@ -1,12 +1,14 @@
 import time
 import pickle
 import pika
+
 import src.Log
+import src.Model
 
 
 class RpcClient:
-    def __init__(self, client_id, model, address, username, password, train_func, device):
-        self.model = model
+    def __init__(self, client_id, address, username, password, train_func, device):
+        self.model = None
         self.client_id = client_id
         self.address = address
         self.username = username
@@ -37,6 +39,12 @@ class RpcClient:
         state_dict = self.response["parameters"]
 
         if action == "START":
+            if self.model is None:
+                model_name = self.response["model_name"]
+                klass = getattr(src.Model, model_name)
+                self.model = klass()
+                self.model.to(self.device)
+
             # Read parameters and load to model
             if state_dict:
                 if self.device != "cpu":
@@ -50,7 +58,7 @@ class RpcClient:
             label_counts = self.response["label_counts"]
 
             # Start training
-            self.train_func(label_counts, batch_size, lr, momentum)
+            self.train_func(self.model, label_counts, batch_size, lr, momentum)
 
             # Stop training, then send parameters to server
             model_state_dict = self.model.state_dict()

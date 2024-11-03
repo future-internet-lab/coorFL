@@ -6,8 +6,32 @@ import torch.nn.functional as F
 
 from tqdm import tqdm
 
+
+class SimpleCNN(nn.Module):
+    def __init__(self):
+        super(SimpleCNN, self).__init__()
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+        self.fc1 = nn.Linear(64 * 8 * 8, 128)
+        self.fc2 = nn.Linear(128, 10)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(0.25)
+
+    def forward(self, x):
+        x = self.relu(self.conv1(x))
+        x = self.pool(x)
+        x = self.relu(self.conv2(x))
+        x = self.pool(x)
+        x = x.view(-1, 64 * 8 * 8)
+        x = self.dropout(self.relu(self.fc1(x)))
+        x = self.fc2(x)
+        return x
+
+
 class Block(nn.Module):
     '''expand + depthwise + pointwise'''
+
     def __init__(self, in_planes, out_planes, expansion, stride):
         super(Block, self).__init__()
         self.stride = stride
@@ -31,17 +55,17 @@ class Block(nn.Module):
         out = F.relu(self.bn1(self.conv1(x)))
         out = F.relu(self.bn2(self.conv2(out)))
         out = self.bn3(self.conv3(out))
-        out = out + self.shortcut(x) if self.stride==1 else out
+        out = out + self.shortcut(x) if self.stride == 1 else out
         return out
 
 
 class MobileNetV2(nn.Module):
     # (expansion, out_planes, num_blocks, stride)
-    cfg = [(1,  16, 1, 1),
-           (6,  24, 2, 1),  # NOTE: change stride 2 -> 1 for CIFAR10
-           (6,  32, 3, 2),
-           (6,  64, 4, 2),
-           (6,  96, 3, 1),
+    cfg = [(1, 16, 1, 1),
+           (6, 24, 2, 1),  # NOTE: change stride 2 -> 1 for CIFAR10
+           (6, 32, 3, 2),
+           (6, 64, 4, 2),
+           (6, 96, 3, 1),
            (6, 160, 3, 2),
            (6, 320, 1, 1)]
 
@@ -58,7 +82,7 @@ class MobileNetV2(nn.Module):
     def _make_layers(self, in_planes):
         layers = []
         for expansion, out_planes, num_blocks, stride in self.cfg:
-            strides = [stride] + [1]*(num_blocks-1)
+            strides = [stride] + [1] * (num_blocks - 1)
             for stride in strides:
                 layers.append(Block(in_planes, out_planes, expansion, stride))
                 in_planes = out_planes
@@ -88,11 +112,11 @@ class BasicBlock(nn.Module):
         self.bn2 = nn.BatchNorm2d(planes)
 
         self.shortcut = nn.Sequential()
-        if stride != 1 or in_planes != self.expansion*planes:
+        if stride != 1 or in_planes != self.expansion * planes:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes,
+                nn.Conv2d(in_planes, self.expansion * planes,
                           kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(self.expansion*planes)
+                nn.BatchNorm2d(self.expansion * planes)
             )
 
     def forward(self, x):
@@ -115,14 +139,14 @@ class Bottleneck(nn.Module):
         self.bn2 = nn.BatchNorm2d(planes)
         self.conv3 = nn.Conv2d(planes, self.expansion *
                                planes, kernel_size=1, bias=False)
-        self.bn3 = nn.BatchNorm2d(self.expansion*planes)
+        self.bn3 = nn.BatchNorm2d(self.expansion * planes)
 
         self.shortcut = nn.Sequential()
-        if stride != 1 or in_planes != self.expansion*planes:
+        if stride != 1 or in_planes != self.expansion * planes:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes,
+                nn.Conv2d(in_planes, self.expansion * planes,
                           kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(self.expansion*planes)
+                nn.BatchNorm2d(self.expansion * planes)
             )
 
     def forward(self, x):
@@ -146,10 +170,10 @@ class ResNet(nn.Module):
         self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=2)
         self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2)
-        self.linear = nn.Linear(512*block.expansion, num_classes)
+        self.linear = nn.Linear(512 * block.expansion, num_classes)
 
     def _make_layer(self, block, planes, num_blocks, stride):
-        strides = [stride] + [1]*(num_blocks-1)
+        strides = [stride] + [1] * (num_blocks - 1)
         layers = []
         for stride in strides:
             layers.append(block(self.in_planes, planes, stride))
@@ -199,9 +223,13 @@ test_loader = torch.utils.data.DataLoader(
     testset, batch_size=100, shuffle=False, num_workers=2)
 
 
-def test(filename, logger):
-    model = MobileNetV2()
-    state_dict = torch.load(f'{filename}.pth', weights_only=False)
+def test(model_name, logger):
+    klass = globals().get(model_name)
+    if klass is None:
+        raise ValueError(f"Class '{model_name}' does not exist.")
+    model = klass()
+
+    state_dict = torch.load(f'{model_name}.pth', weights_only=False)
     model.load_state_dict(state_dict)
     # evaluation mode
     model.eval()

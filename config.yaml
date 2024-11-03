@@ -1,8 +1,8 @@
 name: Coordinated Federated Learning
 server:
-  num-round: 1
-  clients: 1
-  filename: resnet_model
+  num-round: 50
+  clients: 2
+  model: SimpleCNN
   parameters:
     load: False
     save: False

@@ -14,7 +14,6 @@ import torchvision.transforms as transforms
 
 import src.Log
 from src.RpcClient import RpcClient
-from src.Model import MobileNetV2
 
 parser = argparse.ArgumentParser(description="Split learning framework")
 parser.add_argument('--device', type=str, required=False, help='Device of client')
@@ -42,7 +41,6 @@ else:
     device = args.device
     print(f"Using device: {device}")
 
-model = MobileNetV2()
 criterion = nn.CrossEntropyLoss()
 
 credentials = pika.PlainCredentials(username, password)
@@ -69,7 +67,7 @@ for idx, (_, label) in enumerate(trainset):
     label_to_indices[label].append(idx)
 
 
-def train_on_device(label_counts, batch_size, lr, momentum):
+def train_on_device(model, label_counts, batch_size, lr, momentum):
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=1e-4)
 
     selected_indices = []
@@ -80,7 +78,6 @@ def train_on_device(label_counts, batch_size, lr, momentum):
 
     trainloader = torch.utils.data.DataLoader(subset, batch_size=batch_size, shuffle=True)
 
-    model.to(device)
     model.train()
     for (training_data, label) in tqdm(trainloader):
         if training_data.size(0) == 1:
@@ -97,6 +94,6 @@ def train_on_device(label_counts, batch_size, lr, momentum):
 if __name__ == "__main__":
     src.Log.print_with_color("[>>>] Client sending registration message to server...", "red")
     data = {"action": "REGISTER", "client_id": client_id, "message": "Hello from Client!"}
-    client = RpcClient(client_id, model, address, username, password, train_on_device, device)
+    client = RpcClient(client_id, address, username, password, train_on_device, device)
     client.send_to_server(data)
     client.wait_response()

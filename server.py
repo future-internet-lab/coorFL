@@ -27,7 +27,7 @@ with open('config.yaml', 'r') as file:
     config = yaml.safe_load(file)
 
 total_clients = config["server"]["clients"]
-filename = config["server"]["filename"]
+model_name = config["server"]["model"]
 address = config["rabbit"]["address"]
 username = config["rabbit"]["username"]
 password = config["rabbit"]["password"]
@@ -118,7 +118,7 @@ class Server:
                     self.all_model_parameters = []
                 # Test
                 if save_parameters and validation:
-                    src.Model.test(filename, self.logger)
+                    src.Model.test(model_name, self.logger)
                 # Start a new training round
                 self.num_round -= 1
                 if self.num_round > 0:
@@ -137,7 +137,7 @@ class Server:
     def notify_clients(self, start=True, register=True):
         # Send message to clients when consumed all clients
         if start:
-            filepath = f'{filename}.pth'
+            filepath = f'{model_name}.pth'
             # Read parameters file
             state_dict = None
             if load_parameters and register:
@@ -149,6 +149,7 @@ class Server:
                 src.Log.print_with_color(f"[>>>] Sent start training request to client {client_id}", "red")
                 response = {"action": "START",
                             "message": "Server accept the connection!",
+                            "model_name": model_name,
                             "parameters": state_dict,
                             "label_counts": self.label_counts[i],
                             "batch_size": batch_size,
@@ -224,7 +225,7 @@ class Server:
                 self.avg_state_dict[key] //= num_models
 
         # Save to files
-        torch.save(self.avg_state_dict, f'{filename}.pth')
+        torch.save(self.avg_state_dict, f'{model_name}.pth')
 
 
 def delete_old_queues():
