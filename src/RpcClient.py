@@ -22,12 +22,9 @@ class RpcClient:
 
     def wait_response(self):
         status = True
+        reply_queue_name = f'reply_{self.client_id}'
+        self.channel.queue_declare(reply_queue_name, durable=False)
         while status:
-            credentials = pika.PlainCredentials(self.username, self.password)
-            reply_connection = pika.BlockingConnection(pika.ConnectionParameters(self.address, 5672, '/', credentials))
-            reply_channel = reply_connection.channel()
-            reply_queue_name = f'reply_{self.client_id}'
-            reply_channel.queue_declare(reply_queue_name, durable=False)
             method_frame, header_frame, body = self.channel.basic_get(queue=reply_queue_name, auto_ack=True)
             if body:
                 status = self.response_message(body)
