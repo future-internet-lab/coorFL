@@ -6,4 +6,3 @@ requests
 tqdm
 pyyaml
 scikit-learn
-matplotlib

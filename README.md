@@ -25,11 +25,14 @@ To deploy the service, each blocks in the system (server and clients) need to en
 
 ## Required Packages
 ```
+pika
 torch
 torchvision
-pika
+numpy
+requests
 tqdm
 pyyaml
+scikit-learn
 ```
 
 Set up a RabbitMQ server for message communication over the network environment. `docker-compose.yaml` file:
@@ -119,4 +122,4 @@ If the `*.pth` file exists, the server will read the file and send the parameter
 
 ---
 
-Version 1.0.0
+Version 1.2.1
