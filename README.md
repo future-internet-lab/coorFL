@@ -99,6 +99,15 @@ learning:
 
 This configuration is use for server and all clients.
 
+### List of DNN model
+
+```
+SimpleCNN
+MobileNetV2
+ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
+VGG16
+```
+
 ## How to Run
 
 Alter your configuration, you need to run the server to listen and control the request from clients.
@@ -129,4 +138,4 @@ If the `*.pth` file exists, the server will read the file and send the parameter
 
 ---
 
-Version 1.4.0
+Version 1.5.0
