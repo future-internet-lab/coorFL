@@ -47,9 +47,6 @@ class RpcClient:
 
             # Read parameters and load to model
             if state_dict:
-                if self.device != "cpu":
-                    for key in state_dict:
-                        state_dict[key] = state_dict[key].to(self.device)
                 self.model.load_state_dict(state_dict)
 
             data_name = self.response["data_name"]
