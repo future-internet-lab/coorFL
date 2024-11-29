@@ -70,13 +70,17 @@ class Server:
         self.list_clients = []
         self.all_model_parameters = []
         self.avg_state_dict = None
+        self.round_result = True
 
         if data_mode == "even":
-            self.label_counts = [[250 for _ in range(num_labels)] for _ in range(total_clients)]
+            # self.label_counts = [[250 for _ in range(num_labels)] for _ in range(total_clients)]
+            self.label_counts = [[148 for _ in range(num_labels)], [148 for _ in range(num_labels)],
+                                 [273 for _ in range(num_labels)], [4430 for _ in range(num_labels)]]
         else:
             self.label_counts = [[random.randint(0, 500) for _ in range(num_labels)] for _ in range(total_clients)]
         # self.speeds = [325, 788, 857, 915, 727, 270, 340, 219, 725, 228, 677, 259, 945, 433, 222, 979, 339, 864, 858, 621, 242, 790, 807, 368, 259, 776, 218, 845, 294, 340, 731, 595, 799, 524, 779, 581, 456, 574, 754, 771]
-        self.speeds = [25, 20, 77, 33, 74, 25, 77, 54, 39, 88, 36, 76, 34, 37, 84, 85, 80, 28, 44, 20, 87, 57, 86, 43, 90, 58, 23, 41, 35, 41, 21, 60, 92, 81, 37, 30, 85, 79, 84, 22]
+        self.speeds = [25, 20, 77, 33, 74, 25, 77, 54, 39, 88, 36, 76, 34, 37, 84, 85, 80, 28, 44, 20, 87, 57, 86, 43,
+                       90, 58, 23, 41, 35, 41, 21, 60, 92, 81, 37, 30, 85, 79, 84, 22]
         self.selected_client = []
 
         self.channel.basic_qos(prefetch_count=1)
@@ -105,10 +109,14 @@ class Server:
                 self.notify_clients()
         elif action == "UPDATE":
             data_message = message["message"]
+            result = message["result"]
             src.Log.print_with_color(f"[<<<] Received message from client: {data_message}", "blue")
             self.updated_clients += 1
             # Save client's model parameters
-            if save_parameters:
+            if not result:
+                self.round_result = False
+
+            if save_parameters and self.round_result:
                 model_state_dict = message["parameters"]
                 self.all_model_parameters.append(model_state_dict)
 
@@ -116,14 +124,19 @@ class Server:
             if self.updated_clients == len(self.selected_client):
                 self.updated_clients = 0
                 src.Log.print_with_color("Collected all parameters.", "yellow")
-                if save_parameters:
+                if save_parameters and self.round_result:
                     self.avg_all_parameters()
                     self.all_model_parameters = []
                 # Test
-                if save_parameters and validation:
+                if save_parameters and validation and self.round_result:
                     src.Model.test(model_name, data_name, self.logger)
                 # Start a new training round
-                self.round -= 1
+                if not self.round_result:
+                    src.Log.print_with_color(f"Training failed!", "yellow")
+                else:
+                    self.round -= 1
+                self.round_result = True
+
                 if self.round > 0:
                     src.Log.print_with_color(f"Start training round {self.num_round - self.round + 1}", "yellow")
                     self.client_selection()

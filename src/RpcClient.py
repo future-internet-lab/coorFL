@@ -1,6 +1,8 @@
 import time
 import pickle
 import pika
+import torch
+from pika.exceptions import AMQPConnectionError
 
 import src.Log
 import src.Model
@@ -27,10 +29,15 @@ class RpcClient:
         reply_queue_name = f'reply_{self.client_id}'
         self.channel.queue_declare(reply_queue_name, durable=False)
         while status:
-            method_frame, header_frame, body = self.channel.basic_get(queue=reply_queue_name, auto_ack=True)
-            if body:
-                status = self.response_message(body)
-            time.sleep(0.5)
+            try:
+                method_frame, header_frame, body = self.channel.basic_get(queue=reply_queue_name, auto_ack=True)
+                if body:
+                    status = self.response_message(body)
+                time.sleep(0.5)
+            except AMQPConnectionError as e:
+                print(f"Connection failed, retrying in 5 seconds: {e}")
+                self.connect()
+                time.sleep(5)
 
     def response_message(self, body):
         self.response = pickle.loads(body)
@@ -39,8 +46,8 @@ class RpcClient:
         state_dict = self.response["parameters"]
 
         if action == "START":
+            model_name = self.response["model_name"]
             if self.model is None:
-                model_name = self.response["model_name"]
                 klass = getattr(src.Model, model_name)
                 self.model = klass()
                 self.model.to(self.device)
@@ -55,15 +62,14 @@ class RpcClient:
             momentum = self.response["momentum"]
             label_counts = self.response["label_counts"]
 
-            # Start training
-            self.train_func(self.model, data_name, label_counts, batch_size, lr, momentum)
+            result = self.train_func(self.model, data_name, label_counts, batch_size, lr, momentum)
 
             # Stop training, then send parameters to server
             model_state_dict = self.model.state_dict()
             if self.device != "cpu":
                 for key in model_state_dict:
                     model_state_dict[key] = model_state_dict[key].to('cpu')
-            data = {"action": "UPDATE", "client_id": self.client_id,
+            data = {"action": "UPDATE", "client_id": self.client_id, "result": result,
                     "message": "Sent parameters to Server", "parameters": model_state_dict}
             src.Log.print_with_color("[>>>] Client sent parameters to server", "red")
             self.send_to_server(data)

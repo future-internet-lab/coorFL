@@ -84,8 +84,13 @@ def train_on_device(model, data_name, label_counts, batch_size, lr, momentum):
         optimizer.zero_grad()
         output = model(training_data)
         loss = criterion(output, label)
+        if torch.isnan(loss).any():
+            src.Log.print_with_color("Detect NaN loss on client, reload model state_dict", "yellow")
+            return False
         loss.backward()
         optimizer.step()
+
+    return True
 
 
 if __name__ == "__main__":
