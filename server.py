@@ -14,6 +14,7 @@ import src.Model
 import src.Log
 from src.Selection import client_selection_algorithm
 from src.Cluster import clustering_algorithm
+from src.Utils import generate_random_array
 
 from requests.auth import HTTPBasicAuth
 
@@ -69,13 +70,26 @@ class Server:
         self.responses = {}  # Save response
         self.list_clients = []
         self.all_model_parameters = []
+        self.all_client_sizes = []
         self.avg_state_dict = None
         self.round_result = True
 
         if data_mode == "even":
             # self.label_counts = [[250 for _ in range(num_labels)] for _ in range(total_clients)]
-            self.label_counts = [[148 for _ in range(num_labels)], [148 for _ in range(num_labels)],
-                                 [273 for _ in range(num_labels)], [4430 for _ in range(num_labels)]]
+
+            self.label_counts = []
+            # case 1
+            # num_data = [1309, 1309, 2382]
+            # case 2
+            num_data = [167, 167, 304, 4361]
+            # case 3
+            # num_data = [153, 153, 153, 278, 278, 3986]
+            # case 4
+            # num_data = [148, 148, 148, 148, 270, 270, 3868]
+
+            for i in num_data:
+                self.label_counts.append(generate_random_array(i, 10, 5000))
+                # self.label_counts.append([i] * 10)
         else:
             self.label_counts = [[random.randint(0, 500) for _ in range(num_labels)] for _ in range(total_clients)]
         # self.speeds = [325, 788, 857, 915, 727, 270, 340, 219, 725, 228, 677, 259, 945, 433, 222, 979, 339, 864, 858, 621, 242, 790, 807, 368, 259, 776, 218, 845, 294, 340, 731, 595, 799, 524, 779, 581, 456, 574, 754, 771]
@@ -118,7 +132,9 @@ class Server:
 
             if save_parameters and self.round_result:
                 model_state_dict = message["parameters"]
+                client_size = message["size"]
                 self.all_model_parameters.append(model_state_dict)
+                self.all_client_sizes.append(client_size)
 
             # If consumed all client's parameters
             if self.updated_clients == len(self.selected_client):
@@ -127,9 +143,10 @@ class Server:
                 if save_parameters and self.round_result:
                     self.avg_all_parameters()
                     self.all_model_parameters = []
+                    self.all_client_sizes = []
                 # Test
                 if save_parameters and validation and self.round_result:
-                    src.Model.test(model_name, data_name, self.logger)
+                    self.round_result = src.Model.test(model_name, data_name, self.logger)
                 # Start a new training round
                 if not self.round_result:
                     src.Log.print_with_color(f"Training failed!", "yellow")
@@ -159,7 +176,7 @@ class Server:
             state_dict = None
             if load_parameters and register:
                 if os.path.exists(filepath):
-                    state_dict = torch.load(filepath, weights_only=False)
+                    state_dict = torch.load(filepath, weights_only=True)
             for i in self.selected_client:
                 client_id = self.list_clients[i]
                 # Request clients to start training
@@ -233,14 +250,13 @@ class Server:
 
         self.avg_state_dict = state_dicts[0]
 
-        for key in state_dicts[0].keys():
-            for i in range(1, num_models):
-                self.avg_state_dict[key] += state_dicts[i][key]
-
+        for key in self.avg_state_dict.keys():
             if self.avg_state_dict[key].dtype != torch.long:
-                self.avg_state_dict[key] /= num_models
+                self.avg_state_dict[key] = sum(self.all_model_parameters[i][key] * self.all_client_sizes[i]
+                                               for i in range(num_models)) / sum(self.all_client_sizes)
             else:
-                self.avg_state_dict[key] //= num_models
+                self.avg_state_dict[key] = sum(self.all_model_parameters[i][key] * self.all_client_sizes[i]
+                                               for i in range(num_models)) // sum(self.all_client_sizes)
 
         # Save to files
         torch.save(self.avg_state_dict, f'{model_name}.pth')

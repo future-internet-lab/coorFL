@@ -1,7 +1,6 @@
 import time
 import pickle
 import pika
-import torch
 from pika.exceptions import AMQPConnectionError
 
 import src.Log
@@ -69,7 +68,7 @@ class RpcClient:
             if self.device != "cpu":
                 for key in model_state_dict:
                     model_state_dict[key] = model_state_dict[key].to('cpu')
-            data = {"action": "UPDATE", "client_id": self.client_id, "result": result,
+            data = {"action": "UPDATE", "client_id": self.client_id, "result": result, "size": sum(label_counts),
                     "message": "Sent parameters to Server", "parameters": model_state_dict}
             src.Log.print_with_color("[>>>] Client sent parameters to server", "red")
             self.send_to_server(data)

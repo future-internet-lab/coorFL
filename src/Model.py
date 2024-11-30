@@ -3,6 +3,7 @@ import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
 import torch.nn.functional as F
+import numpy as np
 
 from tqdm import tqdm
 
@@ -345,8 +346,9 @@ def test(model_name, data_name, logger):
 
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=100, shuffle=False, num_workers=2)
 
-    state_dict = torch.load(f'{model_name}.pth', weights_only=False)
+    state_dict = torch.load(f'{model_name}.pth', weights_only=True)
     model.load_state_dict(state_dict)
+
     # evaluation mode
     model.eval()
     test_loss = 0
@@ -358,9 +360,13 @@ def test(model_name, data_name, logger):
         correct += pred.eq(target.data.view_as(pred)).long().cpu().sum()
 
     test_loss /= len(test_loader.dataset)
-    print('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
-        test_loss, correct, len(test_loader.dataset),
-        100.0 * correct / len(test_loader.dataset)))
-    logger.log_info('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
-        test_loss, correct, len(test_loader.dataset),
-        100.0 * correct / len(test_loader.dataset)))
+    accuracy = 100.0 * correct / len(test_loader.dataset)
+    print('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)\n'.format(
+        test_loss, correct, len(test_loader.dataset), accuracy))
+    logger.log_info('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)\n'.format(
+        test_loss, correct, len(test_loader.dataset), accuracy))
+
+    if np.isnan(test_loss) or abs(test_loss) > 10e5:
+        return False
+
+    return True
