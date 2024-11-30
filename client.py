@@ -73,7 +73,7 @@ def train_on_device(model, data_name, label_counts, batch_size, lr, momentum):
     subset = torch.utils.data.Subset(train_set, selected_indices)
     trainloader = torch.utils.data.DataLoader(subset, batch_size=batch_size, shuffle=True)
 
-    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=1e-4)
+    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
 
     model.train()
     for (training_data, label) in tqdm(trainloader):
@@ -85,12 +85,12 @@ def train_on_device(model, data_name, label_counts, batch_size, lr, momentum):
         output = model(training_data)
         loss = criterion(output, label)
 
-        if torch.isnan(loss).any() or loss.item():
+        if torch.isnan(loss).any():
             src.Log.print_with_color("NaN detected in loss, stop training", "yellow")
             return False
 
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0)
         optimizer.step()
 
     return True

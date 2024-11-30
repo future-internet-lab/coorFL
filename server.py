@@ -88,8 +88,8 @@ class Server:
             # num_data = [148, 148, 148, 148, 270, 270, 3868]
 
             for i in num_data:
-                self.label_counts.append(generate_random_array(i, 10, 5000))
-                # self.label_counts.append([i] * 10)
+                # self.label_counts.append(generate_random_array(i, 10, 5000))
+                self.label_counts.append([i] * 10)
         else:
             self.label_counts = [[random.randint(0, 500) for _ in range(num_labels)] for _ in range(total_clients)]
         # self.speeds = [325, 788, 857, 915, 727, 270, 340, 219, 725, 228, 677, 259, 945, 433, 222, 979, 339, 864, 858, 621, 242, 790, 807, 368, 259, 776, 218, 845, 294, 340, 731, 595, 799, 524, 779, 581, 456, 574, 754, 771]
@@ -146,11 +146,13 @@ class Server:
                     self.all_client_sizes = []
                 # Test
                 if save_parameters and validation and self.round_result:
-                    self.round_result = src.Model.test(model_name, data_name, self.logger)
+                    self.round_result = src.Model.test(model_name, data_name, self.avg_state_dict, self.logger)
                 # Start a new training round
                 if not self.round_result:
                     src.Log.print_with_color(f"Training failed!", "yellow")
                 else:
+                    # Save to files
+                    torch.save(self.avg_state_dict, f'{model_name}.pth')
                     self.round -= 1
                 self.round_result = True
 
@@ -257,9 +259,6 @@ class Server:
             else:
                 self.avg_state_dict[key] = sum(self.all_model_parameters[i][key] * self.all_client_sizes[i]
                                                for i in range(num_models)) // sum(self.all_client_sizes)
-
-        # Save to files
-        torch.save(self.avg_state_dict, f'{model_name}.pth')
 
 
 def delete_old_queues():

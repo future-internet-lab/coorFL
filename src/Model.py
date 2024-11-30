@@ -4,6 +4,7 @@ import torchvision
 import torchvision.transforms as transforms
 import torch.nn.functional as F
 import numpy as np
+import math
 
 from tqdm import tqdm
 
@@ -325,7 +326,7 @@ class VGG16(torch.nn.Module):
         return out52
 
 
-def test(model_name, data_name, logger):
+def test(model_name, data_name, avg_state_dict, logger):
     klass = globals().get(model_name)
     if klass is None:
         raise ValueError(f"Class '{model_name}' does not exist.")
@@ -346,8 +347,7 @@ def test(model_name, data_name, logger):
 
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=100, shuffle=False, num_workers=2)
 
-    state_dict = torch.load(f'{model_name}.pth', weights_only=True)
-    model.load_state_dict(state_dict)
+    model.load_state_dict(avg_state_dict)
 
     # evaluation mode
     model.eval()
@@ -366,7 +366,7 @@ def test(model_name, data_name, logger):
     logger.log_info('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)\n'.format(
         test_loss, correct, len(test_loader.dataset), accuracy))
 
-    if np.isnan(test_loss) or abs(test_loss) > 10e5:
+    if np.isnan(test_loss) or math.isnan(test_loss) or abs(test_loss) > 10e5:
         return False
 
     return True
