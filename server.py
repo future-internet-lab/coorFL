@@ -75,13 +75,16 @@ class Server:
         self.round_result = True
 
         if data_mode == "even":
-            # self.label_counts = [[250 for _ in range(num_labels)] for _ in range(total_clients)]
+            self.label_counts = [[5000 // total_clients for _ in range(num_labels)] for _ in range(total_clients)]
+
+        else:
+            # self.label_counts = [[random.randint(0, 500) for _ in range(num_labels)] for _ in range(total_clients)]
 
             self.label_counts = []
             # case 1
-            # num_data = [1309, 1309, 2382]
+            num_data = [1309, 1309, 2382]
             # case 2
-            num_data = [167, 167, 304, 4361]
+            # num_data = [224, 224, 297, 4155]
             # case 3
             # num_data = [153, 153, 153, 278, 278, 3986]
             # case 4
@@ -90,8 +93,7 @@ class Server:
             for i in num_data:
                 # self.label_counts.append(generate_random_array(i, 10, 5000))
                 self.label_counts.append([i] * 10)
-        else:
-            self.label_counts = [[random.randint(0, 500) for _ in range(num_labels)] for _ in range(total_clients)]
+
         # self.speeds = [325, 788, 857, 915, 727, 270, 340, 219, 725, 228, 677, 259, 945, 433, 222, 979, 339, 864, 858, 621, 242, 790, 807, 368, 259, 776, 218, 845, 294, 340, 731, 595, 799, 524, 779, 581, 456, 574, 754, 771]
         self.speeds = [25, 20, 77, 33, 74, 25, 77, 54, 39, 88, 36, 76, 34, 37, 84, 85, 80, 28, 44, 20, 87, 57, 86, 43,
                        90, 58, 23, 41, 35, 41, 21, 60, 92, 81, 37, 30, 85, 79, 84, 22]
