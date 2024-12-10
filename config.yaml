@@ -1,14 +1,14 @@
 name: Coordinated Federated Learning
 server:
   num-round: 50
-  clients: 2
-  model: SimpleCNN
-  data-name: MNIST
+  clients: 30
+  model: LeNet
+  data-name: CIFAR10
   parameters:
     load: False
     save: False
   validation: False
-  data-mode: even
+  data-mode: uneven
   client-selection: True
   client-cluster: True
 

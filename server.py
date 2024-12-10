@@ -229,6 +229,7 @@ class Server:
         if client_selection_mode:
             if client_cluster_mode:
                 num_cluster, labels = clustering_algorithm(self.label_counts)
+                self.logger.log_info(f"Num cluster = {num_cluster}, labels = {labels}")
                 self.selected_client = []
                 for i in range(num_cluster):
                     cluster_client = [index for index, label in enumerate(labels) if label == i]
