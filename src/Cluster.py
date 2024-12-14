@@ -4,8 +4,8 @@ from sklearn.metrics import silhouette_score
 
 def clustering_algorithm(label_counts, client_cluster_config):
     cluster_name = client_cluster_config['cluster']
-    if cluster_name == 'KMean':
-        cluster_config = client_cluster_config['KMean']
+    if cluster_name == 'KMeans':
+        cluster_config = client_cluster_config['KMeans']
         return clustering_KMeans(label_counts, cluster_config)
     elif cluster_name == 'AffinityPropagation':
         cluster_config = client_cluster_config['AffinityPropagation']

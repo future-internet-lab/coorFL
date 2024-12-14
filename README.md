@@ -85,7 +85,7 @@ server:   # server configuration
   client-cluster:
     enable: True          # run client cluster
     cluster: AffinityPropagation    # choose cluster algorithm name
-    KMean:
+    KMeans:
       mode: auto          # if mode is auto, cluster will automate choose the best silhouette score for K value
                           # if mode is a number, K = mode
     AffinityPropagation:

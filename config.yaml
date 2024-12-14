@@ -13,7 +13,7 @@ server:
   client-cluster:
     enable: True
     cluster: AffinityPropagation
-    KMean:
+    KMeans:
       mode: auto
     AffinityPropagation:
       damping: 0.9
