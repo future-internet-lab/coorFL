@@ -82,7 +82,15 @@ server:   # server configuration
   ### algorithm
   data-mode: even         # data distribution evenly
   client-selection: True  # run client selection
-  client-cluster: True    # run client cluster
+  client-cluster:
+    enable: True          # run client cluster
+    cluster: AffinityPropagation    # choose cluster algorithm name
+    KMean:
+      mode: auto          # if mode is auto, cluster will automate choose the best silhouette score for K value
+                          # if mode is a number, K = mode
+    AffinityPropagation:
+      damping: 0.9        # damping factor, default value is 0.5
+      max_iter: 1000      # max_iter, default value is `null`
 
 rabbit:   # RabbitMQ connection configuration
   address: 127.0.0.1    # address
@@ -138,4 +146,4 @@ If the `*.pth` file exists, the server will read the file and send the parameter
 
 ---
 
-Version 1.5.3
+Version 1.6.0

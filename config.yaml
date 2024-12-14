@@ -10,7 +10,15 @@ server:
   validation: False
   data-mode: uneven
   client-selection: True
-  client-cluster: True
+  client-cluster:
+    enable: True
+    cluster: AffinityPropagation
+    KMean:
+      mode: auto
+    AffinityPropagation:
+      damping: 0.9
+      max_iter: 1000
+
 
 rabbit:
   address: 127.0.0.1

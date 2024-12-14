@@ -42,7 +42,7 @@ validation = config["server"]["validation"]
 # Algorithm
 data_mode = config["server"]["data-mode"]
 client_selection_mode = config["server"]["client-selection"]
-client_cluster_mode = config["server"]["client-cluster"]
+client_cluster_config = config["server"]["client-cluster"]
 
 # Clients
 batch_size = config["learning"]["batch-size"]
@@ -227,8 +227,8 @@ class Server:
         total_training_time = np.array(num_datas) / np.array(local_speeds)
 
         if client_selection_mode:
-            if client_cluster_mode:
-                num_cluster, labels = clustering_algorithm(self.label_counts)
+            if client_cluster_config['enable']:
+                num_cluster, labels = clustering_algorithm(self.label_counts, client_cluster_config)
                 self.logger.log_info(f"Num cluster = {num_cluster}, labels = {labels}")
                 self.selected_client = []
                 for i in range(num_cluster):
