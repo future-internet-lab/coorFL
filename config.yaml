@@ -5,9 +5,9 @@ server:
   model: LeNet
   data-name: CIFAR10
   parameters:
-    load: False
-    save: False
-  validation: False
+    load: True
+    save: True
+  validation: True
   data-mode: uneven
   client-selection: True
   client-cluster:
@@ -28,6 +28,6 @@ rabbit:
 log_path: .
 
 learning:
-  learning-rate: 1e-6
+  learning-rate: 0.05
   momentum: 0.5
-  batch-size: 256
+  batch-size: 128

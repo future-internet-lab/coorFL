@@ -80,14 +80,14 @@ server:   # server configuration
                     # if turn on, server will be averaging all parameters
   validation: True  # allow to validate on server-side
   ### algorithm
-  data-mode: even         # data distribution evenly
+  data-mode: even         # data distribution `even` or `uneven`
   client-selection: True  # run client selection
   client-cluster:
     enable: True          # run client cluster
     cluster: AffinityPropagation    # choose cluster algorithm name
     KMeans:
       mode: auto          # if mode is auto, cluster will automate choose the best silhouette score for K value
-                          # if mode is a number, K = mode
+                          # if mode is number, K = mode
     AffinityPropagation:
       damping: 0.9        # damping factor, default value is 0.5
       max_iter: 1000      # max_iter, default value is `null`
