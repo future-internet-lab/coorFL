@@ -111,7 +111,7 @@ This configuration is use for server and all clients.
 
 ```
 SimpleCNN
-LeNet
+LeNet_MNIST, LeNet_CIFAR10
 MobileNetV2
 ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
 VGG16, VGG19
