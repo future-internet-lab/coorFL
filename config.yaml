@@ -3,12 +3,18 @@ server:
   num-round: 50
   clients: 30
   model: LeNet
-  data-name: CIFAR10
+  data-name: LeNet_CIFAR10
   parameters:
     load: True
     save: True
   validation: True
   data-mode: uneven
+  data-distribution:
+    num-data-range:
+      - 0
+      - 500
+    non-iid-rate: 0.5
+  random-seed: 1
   client-selection: True
   client-cluster:
     enable: True

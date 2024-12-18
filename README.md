@@ -72,8 +72,8 @@ name: Split Learning
 server:   # server configuration
   num-round: 2  # number of training rounds
   clients: 3    # number of FL clients
-  model: ResNet50   # class name of DNN model
-  data-name: MNIST  # training data
+  model: ResNet50     # class name of DNN model
+  data-name: CIFAR10  # training data
   parameters:
     load: False     # allow to load parameters file
     save: False     # allow to save parameters file
@@ -81,6 +81,12 @@ server:   # server configuration
   validation: True  # allow to validate on server-side
   ### algorithm
   data-mode: even         # data distribution `even` or `uneven`
+  data-distribution:      # data distribution config
+    num-data-range:       # minimum and maximum number of label's data
+      - 0
+      - 500
+    non-iid-rate: 0.5     # non-IID rate, range [0, 1)
+  random-seed: 1
   client-selection: True  # run client selection
   client-cluster:
     enable: True          # run client cluster
@@ -147,4 +153,4 @@ If the `*.pth` file exists, the server will read the file and send the parameter
 
 ---
 
-Version 1.6.0
+Version 1.7.0

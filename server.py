@@ -38,6 +38,11 @@ num_round = config["server"]["num-round"]
 save_parameters = config["server"]["parameters"]["save"]
 load_parameters = config["server"]["parameters"]["load"]
 validation = config["server"]["validation"]
+random_seed = config["server"]["random-seed"]
+
+data_distribution = config["server"]["data-distribution"]
+data_range = data_distribution["num-data-range"]
+non_iid_rate = data_distribution["non-iid-rate"]
 
 # Algorithm
 data_mode = config["server"]["data-mode"]
@@ -52,6 +57,10 @@ momentum = config["learning"]["momentum"]
 log_path = config["log_path"]
 
 num_labels = 10
+
+
+if random_seed:
+    random.seed(random_seed)
 
 
 class Server:
@@ -78,17 +87,8 @@ class Server:
             self.label_counts = [[5000 // total_clients for _ in range(num_labels)] for _ in range(total_clients)]
 
         else:
-            self.label_counts = [[random.randint(0, 500) for _ in range(num_labels)] for _ in range(total_clients)]
-
-            # self.label_counts = []
-            # case 1
-            # num_data = [1309, 1309, 2382]
-            # case 2
-            # num_data = [224, 224, 297, 4155]
-            # case 3
-            # num_data = [153, 153, 153, 278, 278, 3986]
-            # case 4
-            # num_data = [148, 148, 148, 148, 270, 270, 3868]
+            self.label_counts = [np.array([random.randint(data_range[0], data_range[1]) for _ in range(num_labels)]) *
+                                 src.Utils.non_iid_rate(num_labels, non_iid_rate) for _ in range(total_clients)]
 
             # for i in num_data:
                 # self.label_counts.append(generate_random_array(i, 10, 5000))
@@ -228,7 +228,7 @@ class Server:
 
         if client_selection_mode:
             if client_cluster_config['enable']:
-                num_cluster, labels = clustering_algorithm(self.label_counts, client_cluster_config)
+                num_cluster, labels, _ = clustering_algorithm(self.label_counts, client_cluster_config)
                 self.logger.log_info(f"Num cluster = {num_cluster}, labels = {labels}")
                 self.selected_client = []
                 for i in range(num_cluster):

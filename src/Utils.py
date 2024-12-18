@@ -1,4 +1,5 @@
 import numpy as np
+import random
 
 
 def generate_random_array(target_sum, size, max_value=None):
@@ -12,3 +13,13 @@ def generate_random_array(target_sum, size, max_value=None):
             current_sum[i] = max_value
 
     return current_sum.astype(int).tolist()
+
+
+def non_iid_rate(num_data, rate):
+    result = []
+    for _ in range(num_data):
+        if rate >= random.random():
+            result.append(0)
+        else:
+            result.append(1)
+    return np.array(result)

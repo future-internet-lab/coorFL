@@ -32,7 +32,7 @@ def clustering_KMeans(label_counts, config):
                 num_clusters = k
                 labels = kmeans.labels_
 
-        return num_clusters, labels
+        return num_clusters, labels, silhouette_avg_max
     elif mode.isnumeric():
         k = int(mode)
         if k > len(label_counts) or k < 1:
@@ -41,7 +41,7 @@ def clustering_KMeans(label_counts, config):
             kmeans = KMeans(n_clusters=k)
             labels = kmeans.labels_
 
-            return k, labels
+            return k, labels, None
     else:
         raise ValueError(f"KMeans mode '{mode}' id not valid.")
 
@@ -50,10 +50,10 @@ def clustering_AffinityPropagation(label_counts, config):
     damping = config['damping']
     max_iter = config['max_iter']
 
-    affinity_propagation = AffinityPropagation(damping=damping,max_iter=max_iter)
+    affinity_propagation = AffinityPropagation(damping=damping, max_iter=max_iter)
     affinity_propagation.fit(label_counts)
 
     cluster_centers_indices = affinity_propagation.cluster_centers_indices_
     labels = affinity_propagation.labels_
 
-    return len(cluster_centers_indices), labels
+    return len(cluster_centers_indices), labels, None
