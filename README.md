@@ -68,7 +68,7 @@ docker-compose up -d
 Application configuration is in the `config.yaml` file:
 
 ```yaml
-name: Split Learning
+name: Coordinated Federated Learning
 server:   # server configuration
   num-round: 2  # number of training rounds
   clients: 3    # number of FL clients

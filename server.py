@@ -79,7 +79,6 @@ class Server:
         self.responses = {}  # Save response
         self.list_clients = []
         self.all_model_parameters = []
-        self.all_client_sizes = []
         self.avg_state_dict = None
         self.round_result = True
 
@@ -105,7 +104,36 @@ class Server:
         self.logger.log_info("### Application start ###\n")
         src.Log.print_with_color(f"Server is waiting for {self.total_clients} clients.", "green")
 
+    def start(self):
+        self.channel.start_consuming()
+
+    def send_to_response(self, client_id, message):
+        """
+        Response message to clients
+        :param client_id: client ID
+        :param message: message
+        :return:
+        """
+        reply_channel = self.connection.channel()
+        reply_queue_name = f'reply_{client_id}'
+        reply_channel.queue_declare(reply_queue_name, durable=False)
+
+        src.Log.print_with_color(f"[>>>] Sent notification to client {client_id}", "red")
+        reply_channel.basic_publish(
+            exchange='',
+            routing_key=reply_queue_name,
+            body=message
+        )
+
     def on_request(self, ch, method, props, body):
+        """
+        Handler request from clients
+        :param ch: channel
+        :param method:
+        :param props:
+        :param body: message body
+        :return:
+        """
         message = pickle.loads(body)
         routing_key = props.reply_to
         action = message["action"]
@@ -135,50 +163,62 @@ class Server:
             if save_parameters and self.round_result:
                 model_state_dict = message["parameters"]
                 client_size = message["size"]
-                self.all_model_parameters.append(model_state_dict)
-                self.all_client_sizes.append(client_size)
+                self.all_model_parameters.append({'client_id': client_id, 'weight': model_state_dict,
+                                                  'size': client_size})
 
             # If consumed all client's parameters
             if self.updated_clients == len(self.selected_client):
-                self.updated_clients = 0
-                src.Log.print_with_color("Collected all parameters.", "yellow")
-                if save_parameters and self.round_result:
-                    self.avg_all_parameters()
-                    self.all_model_parameters = []
-                    self.all_client_sizes = []
-                # Test
-                if save_parameters and validation and self.round_result:
-                    self.round_result = src.Model.test(model_name, data_name, self.avg_state_dict, self.logger)
-                # Start a new training round
-                if not self.round_result:
-                    src.Log.print_with_color(f"Training failed!", "yellow")
-                else:
-                    # Save to files
-                    torch.save(self.avg_state_dict, f'{model_name}.pth')
-                    self.round -= 1
-                self.round_result = True
-
-                if self.round > 0:
-                    src.Log.print_with_color(f"Start training round {self.num_round - self.round + 1}", "yellow")
-                    self.client_selection()
-                    if save_parameters:
-                        self.notify_clients()
-                    else:
-                        self.notify_clients(register=False)
-                else:
-                    self.notify_clients(start=False)
-                    sys.exit()
+                self.process_consumer()
 
         # Ack the message
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
-    def notify_clients(self, start=True, register=True):
+    def process_consumer(self):
+        """
+        After collect all training clients, start validation and make decision for the next training round
+        :return:
+        """
+        self.updated_clients = 0
+        src.Log.print_with_color("Collected all parameters.", "yellow")
+        # TODO: detect model poisoning with self.all_model_parameters at here
+        if save_parameters and self.round_result:
+            self.avg_all_parameters()
+
+            self.all_model_parameters = []
+        # Server validation
+        if save_parameters and validation and self.round_result:
+            self.round_result = src.Model.test(model_name, data_name, self.avg_state_dict, self.logger)
+
+        if not self.round_result:
+            src.Log.print_with_color(f"Training failed!", "yellow")
+        else:
+            # Save to files
+            torch.save(self.avg_state_dict, f'{model_name}.pth')
+            self.round -= 1
+        self.round_result = True
+
+        if self.round > 0:
+            # Start a new training round
+            src.Log.print_with_color(f"Start training round {self.num_round - self.round + 1}", "yellow")
+            self.client_selection()
+            self.notify_clients()
+        else:
+            # Stop training
+            self.notify_clients(start=False)
+            sys.exit()
+
+    def notify_clients(self, start=True):
+        """
+        Control message to clients
+        :param start: If True (default), request clients to start. Else if False, stop training
+        :return:
+        """
         # Send message to clients when consumed all clients
         if start:
             filepath = f'{model_name}.pth'
             # Read parameters file
             state_dict = None
-            if load_parameters and register:
+            if load_parameters:
                 if os.path.exists(filepath):
                     state_dict = torch.load(filepath, weights_only=True)
             for i in self.selected_client:
@@ -206,22 +246,12 @@ class Server:
                             "parameters": None}
                 self.send_to_response(client_id, pickle.dumps(response))
 
-    def start(self):
-        self.channel.start_consuming()
-
-    def send_to_response(self, client_id, message):
-        reply_channel = self.connection.channel()
-        reply_queue_name = f'reply_{client_id}'
-        reply_channel.queue_declare(reply_queue_name, durable=False)
-
-        src.Log.print_with_color(f"[>>>] Sent notification to client {client_id}", "red")
-        reply_channel.basic_publish(
-            exchange='',
-            routing_key=reply_queue_name,
-            body=message
-        )
-
     def client_selection(self):
+        """
+        Select the specific clients
+        :return: The list contain index of active clients: `self.selected_client`.
+        E.g. `self.selected_client = [2,3,5]` means client 2, 3 and 5 will train this current round
+        """
         local_speeds = self.speeds[:len(self.list_clients)]
         num_datas = [np.sum(self.label_counts[i]) for i in range(len(self.list_clients))]
         total_training_time = np.array(num_datas) / np.array(local_speeds)
@@ -246,22 +276,26 @@ class Server:
         self.logger.log_info(f"Total training time round = {training_time}")
 
     def avg_all_parameters(self):
+        """
+        Consuming all client's weight from `self.all_model_parameters` - a list contain all client's weight
+        :return: Global weight on `self.avg_state_dict`
+        """
         # Average all client parameters
-        state_dicts = self.all_model_parameters
-        num_models = len(state_dicts)
+        num_models = len(self.all_model_parameters)
 
         if num_models == 0:
             return
 
-        self.avg_state_dict = state_dicts[0]
+        self.avg_state_dict = self.all_model_parameters[0]['weight']
+        all_client_sizes = [item['size'] for item in self.all_model_parameters]
 
         for key in self.avg_state_dict.keys():
             if self.avg_state_dict[key].dtype != torch.long:
-                self.avg_state_dict[key] = sum(self.all_model_parameters[i][key] * self.all_client_sizes[i]
-                                               for i in range(num_models)) / sum(self.all_client_sizes)
+                self.avg_state_dict[key] = sum(self.all_model_parameters[i]['weight'][key] * all_client_sizes[i]
+                                               for i in range(num_models)) / sum(all_client_sizes)
             else:
-                self.avg_state_dict[key] = sum(self.all_model_parameters[i][key] * self.all_client_sizes[i]
-                                               for i in range(num_models)) // sum(self.all_client_sizes)
+                self.avg_state_dict[key] = sum(self.all_model_parameters[i]['weight'][key] * all_client_sizes[i]
+                                               for i in range(num_models)) // sum(all_client_sizes)
 
 
 def delete_old_queues():
