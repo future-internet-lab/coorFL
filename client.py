@@ -2,15 +2,11 @@ import pika
 import uuid
 import argparse
 import yaml
-import random
 from tqdm import tqdm
-from collections import defaultdict
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torchvision
-import torchvision.transforms as transforms
 
 import src.Log
 from src.RpcClient import RpcClient
@@ -46,33 +42,7 @@ criterion = nn.CrossEntropyLoss()
 credentials = pika.PlainCredentials(username, password)
 
 
-def train_on_device(model, data_name, label_counts, batch_size, lr, momentum):
-    if data_name == "MNIST":
-        transform_train = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5,), (0.5,))
-        ])
-        train_set = torchvision.datasets.MNIST(root='./data', train=True, download=True, transform=transform_train)
-    elif data_name == "CIFAR10":
-        transform_train = transforms.Compose([
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-        ])
-        train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
-
-    label_to_indices = defaultdict(list)
-    for idx, (_, label) in enumerate(train_set):
-        label_to_indices[label].append(idx)
-
-    selected_indices = []
-    for label, count in enumerate(label_counts):
-        selected_indices.extend(random.sample(label_to_indices[label], count))
-
-    subset = torch.utils.data.Subset(train_set, selected_indices)
-    trainloader = torch.utils.data.DataLoader(subset, batch_size=batch_size, shuffle=True)
-
+def train_on_device(model, lr, momentum, trainloader):
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
 
     model.train()

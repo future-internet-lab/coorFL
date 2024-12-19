@@ -43,7 +43,7 @@ def clustering_KMeans(label_counts, config):
 
             return k, labels, None
     else:
-        raise ValueError(f"KMeans mode '{mode}' id not valid.")
+        raise ValueError(f"KMeans mode '{mode}' is not valid.")
 
 
 def clustering_AffinityPropagation(label_counts, config):

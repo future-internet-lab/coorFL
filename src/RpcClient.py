@@ -1,7 +1,14 @@
 import time
 import pickle
 import pika
+import torch
+import random
+
+import torchvision
+import torchvision.transforms as transforms
+
 from pika.exceptions import AMQPConnectionError
+from collections import defaultdict
 
 import src.Log
 import src.Model
@@ -20,6 +27,9 @@ class RpcClient:
         self.channel = None
         self.connection = None
         self.response = None
+
+        self.train_set = None
+        self.label_to_indices = None
 
         self.connect()
 
@@ -61,7 +71,38 @@ class RpcClient:
             momentum = self.response["momentum"]
             label_counts = self.response["label_counts"]
 
-            result = self.train_func(self.model, data_name, label_counts, batch_size, lr, momentum)
+            if data_name and not self.train_set and not self.label_to_indices:
+                if data_name == "MNIST":
+                    transform_train = transforms.Compose([
+                        transforms.ToTensor(),
+                        transforms.Normalize((0.5,), (0.5,))
+                    ])
+                    self.train_set = torchvision.datasets.MNIST(root='./data', train=True, download=True,
+                                                                transform=transform_train)
+                elif data_name == "CIFAR10":
+                    transform_train = transforms.Compose([
+                        transforms.RandomCrop(32, padding=4),
+                        transforms.RandomHorizontalFlip(),
+                        transforms.ToTensor(),
+                        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                    ])
+                    self.train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True,
+                                                                  transform=transform_train)
+                else:
+                    raise ValueError(f"Data name '{data_name}' is not valid.")
+
+                self.label_to_indices = defaultdict(list)
+                for idx, (_, label) in enumerate(self.train_set):
+                    self.label_to_indices[label].append(idx)
+
+            selected_indices = []
+            for label, count in enumerate(label_counts):
+                selected_indices.extend(random.sample(self.label_to_indices[label], count))
+
+            subset = torch.utils.data.Subset(self.train_set, selected_indices)
+            train_loader = torch.utils.data.DataLoader(subset, batch_size=batch_size, shuffle=True)
+
+            result = self.train_func(self.model, lr, momentum, train_loader)
 
             # Stop training, then send parameters to server
             model_state_dict = self.model.state_dict()
