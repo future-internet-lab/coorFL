@@ -85,7 +85,8 @@ server:   # server configuration
     num-data-range:       # minimum and maximum number of label's data
       - 0
       - 500
-    non-iid-rate: 0.5     # non-IID rate, range [0, 1)
+    non-iid-rate: 0.5     # non-IID rate, range (0, 1]
+    refresh-each-round: True  # if set True, non-IID on label will be reset on each round
   random-seed: 1
   client-selection: True  # run client selection
   client-cluster:
@@ -153,4 +154,4 @@ If the `*.pth` file exists, the server will read the file and send the parameter
 
 ---
 
-Version 1.7.0
+Version 1.7.1

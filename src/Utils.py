@@ -18,7 +18,7 @@ def generate_random_array(target_sum, size, max_value=None):
 def non_iid_rate(num_data, rate):
     result = []
     for _ in range(num_data):
-        if rate >= random.random():
+        if rate < random.random():
             result.append(0)
         else:
             result.append(1)

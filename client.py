@@ -60,7 +60,7 @@ def train_on_device(model, lr, momentum, trainloader):
             return False
 
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0)
+        # torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0)
         optimizer.step()
 
     return True

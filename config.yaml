@@ -14,6 +14,7 @@ server:
       - 0
       - 500
     non-iid-rate: 0.5
+    refresh-each-round: True
   random-seed: 1
   client-selection: True
   client-cluster:

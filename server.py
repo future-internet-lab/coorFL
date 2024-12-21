@@ -43,6 +43,7 @@ random_seed = config["server"]["random-seed"]
 data_distribution = config["server"]["data-distribution"]
 data_range = data_distribution["num-data-range"]
 non_iid_rate = data_distribution["non-iid-rate"]
+refresh_each_round = data_distribution["refresh-each-round"]
 
 # Algorithm
 data_mode = config["server"]["data-mode"]
@@ -81,17 +82,10 @@ class Server:
         self.all_model_parameters = []
         self.avg_state_dict = None
         self.round_result = True
-
-        if data_mode == "even":
-            self.label_counts = [[5000 // total_clients for _ in range(num_labels)] for _ in range(total_clients)]
-
-        else:
-            self.label_counts = [np.array([random.randint(data_range[0], data_range[1]) for _ in range(num_labels)]) *
-                                 src.Utils.non_iid_rate(num_labels, non_iid_rate) for _ in range(total_clients)]
-
-            # for i in num_data:
-                # self.label_counts.append(generate_random_array(i, 10, 5000))
-                # self.label_counts.append([i] * 10)
+        self.label_counts = None
+        self.non_iid_label = None
+        if not refresh_each_round:
+            self.non_iid_label = src.Utils.non_iid_rate(num_labels, non_iid_rate)
 
         # self.speeds = [325, 788, 857, 915, 727, 270, 340, 219, 725, 228, 677, 259, 945, 433, 222, 979, 339, 864, 858, 621, 242, 790, 807, 368, 259, 776, 218, 845, 294, 340, 731, 595, 799, 524, 779, 581, 456, 574, 754, 771]
         self.speeds = [25, 20, 77, 33, 74, 25, 77, 54, 39, 88, 36, 76, 34, 37, 84, 85, 80, 28, 44, 20, 87, 57, 86, 43,
@@ -106,6 +100,16 @@ class Server:
 
     def start(self):
         self.channel.start_consuming()
+
+    def data_distribution(self):
+        if data_mode == "even":
+            self.label_counts = [[5000 // total_clients for _ in range(num_labels)] for _ in range(total_clients)]
+        else:
+            if refresh_each_round:
+                self.non_iid_label = src.Utils.non_iid_rate(num_labels, non_iid_rate)
+            self.label_counts = [np.array([random.randint(data_range[0]//non_iid_rate, data_range[1]//non_iid_rate)
+                                          for _ in range(num_labels)]) *
+                                 self.non_iid_label for _ in range(total_clients)]
 
     def send_to_response(self, client_id, message):
         """
@@ -147,6 +151,7 @@ class Server:
 
             # If consumed all clients - Register for first time
             if len(self.list_clients) == self.total_clients:
+                self.data_distribution()
                 src.Log.print_with_color("All clients are connected. Sending notifications.", "green")
                 self.client_selection()
                 src.Log.print_with_color(f"Start training round {self.num_round - self.round + 1}", "yellow")
@@ -200,6 +205,7 @@ class Server:
         if self.round > 0:
             # Start a new training round
             src.Log.print_with_color(f"Start training round {self.num_round - self.round + 1}", "yellow")
+            self.data_distribution()
             self.client_selection()
             self.notify_clients()
         else:
@@ -235,8 +241,6 @@ class Server:
                             "lr": lr,
                             "momentum": momentum}
                 self.send_to_response(client_id, pickle.dumps(response))
-            if data_mode != "even":
-                self.label_counts = [[random.randint(0, 1000) for _ in range(num_labels)] for _ in range(total_clients)]
         else:
             for client_id in self.list_clients:
                 # Request clients to stop process
