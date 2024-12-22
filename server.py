@@ -10,11 +10,11 @@ import requests
 import random
 import numpy as np
 
-import src.Model
+import src.Validation
 import src.Log
 from src.Selection import client_selection_algorithm
 from src.Cluster import clustering_algorithm
-from src.Utils import generate_random_array
+from src.Utils import DomainDataset, generate_random_array
 
 from requests.auth import HTTPBasicAuth
 
@@ -57,7 +57,12 @@ momentum = config["learning"]["momentum"]
 
 log_path = config["log_path"]
 
-num_labels = 10
+if data_name == "CIFAR10" or data_name == "MNIST":
+    num_labels = 10
+elif data_name == "DOMAIN":
+    num_labels = 21
+else:
+    num_labels = 0
 
 
 if random_seed:
@@ -92,9 +97,12 @@ class Server:
                        90, 58, 23, 41, 35, 41, 21, 60, 92, 81, 37, 30, 85, 79, 84, 22]
         self.selected_client = []
 
+        self.logger = src.Log.Logger(f"{log_path}/app.log")
+        self.validation = src.Validation.Validation(model_name, data_name, self.logger)
+
         self.channel.basic_qos(prefetch_count=1)
         self.channel.basic_consume(queue='rpc_queue', on_message_callback=self.on_request)
-        self.logger = src.Log.Logger(f"{log_path}/app.log")
+
         self.logger.log_info("### Application start ###\n")
         src.Log.print_with_color(f"Server is waiting for {self.total_clients} clients.", "green")
 
@@ -102,14 +110,27 @@ class Server:
         self.channel.start_consuming()
 
     def data_distribution(self):
-        if data_mode == "even":
-            self.label_counts = [[5000 // total_clients for _ in range(num_labels)] for _ in range(total_clients)]
+        if data_name == "DOMAIN":
+            if data_mode == "even":
+                self.label_counts = [[25000 // total_clients] + [1250 // total_clients for _ in range(num_labels-1)]
+                                     for _ in range(total_clients)]
+            else:
+                if refresh_each_round:
+                    self.non_iid_label = np.insert(src.Utils.non_iid_rate(num_labels-1, non_iid_rate), 0, 1)
+                dga_distribution = ([random.randint(data_range[0]*(num_labels-1), data_range[1]*(num_labels-1))] +
+                                    [random.randint(data_range[0] // non_iid_rate, data_range[1] // non_iid_rate)
+                                    for _ in range(num_labels-1)])
+                self.label_counts = [np.array(dga_distribution) * self.non_iid_label for _ in range(total_clients)]
+
         else:
-            if refresh_each_round:
-                self.non_iid_label = src.Utils.non_iid_rate(num_labels, non_iid_rate)
-            self.label_counts = [np.array([random.randint(data_range[0]//non_iid_rate, data_range[1]//non_iid_rate)
-                                          for _ in range(num_labels)]) *
-                                 self.non_iid_label for _ in range(total_clients)]
+            if data_mode == "even":
+                self.label_counts = [[5000 // total_clients for _ in range(num_labels)] for _ in range(total_clients)]
+            else:
+                if refresh_each_round:
+                    self.non_iid_label = src.Utils.non_iid_rate(num_labels, non_iid_rate)
+                self.label_counts = [np.array([random.randint(data_range[0]//non_iid_rate, data_range[1]//non_iid_rate)
+                                              for _ in range(num_labels)]) *
+                                     self.non_iid_label for _ in range(total_clients)]
 
     def send_to_response(self, client_id, message):
         """
@@ -118,7 +139,7 @@ class Server:
         :param message: message
         :return:
         """
-        reply_channel = self.connection.channel()
+        reply_channel = self.channel
         reply_queue_name = f'reply_{client_id}'
         reply_channel.queue_declare(reply_queue_name, durable=False)
 
@@ -192,7 +213,7 @@ class Server:
             self.all_model_parameters = []
         # Server validation
         if save_parameters and validation and self.round_result:
-            self.round_result = src.Model.test(model_name, data_name, self.avg_state_dict, self.logger)
+            self.round_result = self.validation.test(self.avg_state_dict)
 
         if not self.round_result:
             src.Log.print_with_color(f"Training failed!", "yellow")

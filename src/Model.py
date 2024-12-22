@@ -1,12 +1,6 @@
 import torch
 import torch.nn as nn
-import torchvision
-import torchvision.transforms as transforms
 import torch.nn.functional as F
-import numpy as np
-import math
-
-from tqdm import tqdm
 
 
 class SimpleCNN(nn.Module):
@@ -518,47 +512,24 @@ class VGG19(torch.nn.Module):
         return out61
 
 
-def test(model_name, data_name, avg_state_dict, logger):
-    klass = globals().get(model_name)
-    if klass is None:
-        raise ValueError(f"Class '{model_name}' does not exist.")
-    model = klass()
+class DGAClassifier(nn.Module):
+    def __init__(self, input_dim, embedding_dim, hidden_dim, output_dim):
+        super(DGAClassifier, self).__init__()
+        self.embedding = nn.Embedding(input_dim, embedding_dim)
+        self.lstm = nn.LSTM(embedding_dim, hidden_dim, batch_first=True)
+        self.fc = nn.Linear(hidden_dim, output_dim)
+        self.sigmoid = nn.Sigmoid()
 
-    if data_name == "MNIST":
-        transform_test = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5,), (0.5,))
-        ])
-        test_set = torchvision.datasets.MNIST(root='./data', train=False, download=True, transform=transform_test)
-    elif data_name == "CIFAR10":
-        transform_test = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-        ])
-        test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
+    def forward(self, x):
+        embedded = self.embedding(x)
+        lstm_out, _ = self.lstm(embedded)
+        output = self.fc(lstm_out[:, -1, :])
+        return self.sigmoid(output).squeeze()
 
-    test_loader = torch.utils.data.DataLoader(test_set, batch_size=100, shuffle=False, num_workers=2)
 
-    model.load_state_dict(avg_state_dict)
-
-    # evaluation mode
-    model.eval()
-    test_loss = 0
-    correct = 0
-    for data, target in tqdm(test_loader):
-        output = model(data)
-        test_loss += F.nll_loss(output, target, reduction='sum').item()
-        pred = output.data.max(1, keepdim=True)[1]  # get the index of the max log-probability
-        correct += pred.eq(target.data.view_as(pred)).long().cpu().sum()
-
-    test_loss /= len(test_loader.dataset)
-    accuracy = 100.0 * correct / len(test_loader.dataset)
-    print('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)\n'.format(
-        test_loss, correct, len(test_loader.dataset), accuracy))
-    logger.log_info('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)\n'.format(
-        test_loss, correct, len(test_loader.dataset), accuracy))
-
-    if np.isnan(test_loss) or math.isnan(test_loss) or abs(test_loss) > 10e5:
-        return False
-
-    return True
+def LSTM():
+    """
+    LSTM for domain detection
+    :return:
+    """
+    return DGAClassifier(128, 32, 64, 1)

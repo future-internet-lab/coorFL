@@ -5,11 +5,11 @@ import yaml
 from tqdm import tqdm
 
 import torch
-import torch.nn as nn
 import torch.optim as optim
 
 import src.Log
 from src.RpcClient import RpcClient
+from src.Utils import DomainDataset
 
 parser = argparse.ArgumentParser(description="Split learning framework")
 parser.add_argument('--device', type=str, required=False, help='Device of client')
@@ -37,12 +37,11 @@ else:
     device = args.device
     print(f"Using device: {device}")
 
-criterion = nn.CrossEntropyLoss()
 
 credentials = pika.PlainCredentials(username, password)
 
 
-def train_on_device(model, lr, momentum, trainloader):
+def train_on_device(model, lr, momentum, trainloader, criterion):
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
 
     model.train()

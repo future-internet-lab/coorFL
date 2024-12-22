@@ -4,14 +4,17 @@ import pika
 import torch
 import random
 
+import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
 
 from pika.exceptions import AMQPConnectionError
 from collections import defaultdict
+from tqdm import tqdm
 
 import src.Log
 import src.Model
+import src.Utils
 
 
 class RpcClient:
@@ -88,21 +91,33 @@ class RpcClient:
                     ])
                     self.train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True,
                                                                   transform=transform_train)
+                elif data_name == "DOMAIN":
+                    self.train_set = src.Utils.load_dataset("domain_data/domain_train_dataset.pkl")
+
                 else:
                     raise ValueError(f"Data name '{data_name}' is not valid.")
 
                 self.label_to_indices = defaultdict(list)
-                for idx, (_, label) in enumerate(self.train_set):
-                    self.label_to_indices[label].append(idx)
+                for idx, (_, label) in tqdm(enumerate(self.train_set)):
+                    self.label_to_indices[int(label)].append(idx)
 
             selected_indices = []
             for label, count in enumerate(label_counts):
                 selected_indices.extend(random.sample(self.label_to_indices[label], count))
 
-            subset = torch.utils.data.Subset(self.train_set, selected_indices)
+            if data_name == "DOMAIN":
+                subset = src.Utils.CustomDataset(self.train_set, selected_indices)
+            else:
+                subset = torch.utils.data.Subset(self.train_set, selected_indices)
+
             train_loader = torch.utils.data.DataLoader(subset, batch_size=batch_size, shuffle=True)
 
-            result = self.train_func(self.model, lr, momentum, train_loader)
+            if data_name == "DOMAIN":
+                criterion = nn.BCELoss()
+            else:
+                criterion = nn.CrossEntropyLoss()
+
+            result = self.train_func(self.model, lr, momentum, train_loader, criterion)
 
             # Stop training, then send parameters to server
             model_state_dict = self.model.state_dict()

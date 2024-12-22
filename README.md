@@ -73,7 +73,7 @@ server:   # server configuration
   num-round: 2  # number of training rounds
   clients: 3    # number of FL clients
   model: ResNet50     # class name of DNN model
-  data-name: CIFAR10  # training data
+  data-name: CIFAR10  # training data: MNIST, CIFAR10 or DOMAIN
   parameters:
     load: False     # allow to load parameters file
     save: False     # allow to save parameters file
@@ -116,12 +116,24 @@ This configuration is use for server and all clients.
 
 ### List of DNN model
 
+#### For MNIST
 ```
 SimpleCNN
-LeNet_MNIST, LeNet_CIFAR10
+LeNet_MNIST
+```
+
+#### For CIFAR10
+```
+LeNet_CIFAR10
 MobileNetV2
 ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
 VGG16, VGG19
+LSTM
+```
+
+#### For DOMAIN
+```
+LSTM
 ```
 
 ## How to Run
@@ -154,4 +166,4 @@ If the `*.pth` file exists, the server will read the file and send the parameter
 
 ---
 
-Version 1.7.1
+Version 1.8.0
