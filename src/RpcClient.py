@@ -73,6 +73,7 @@ class RpcClient:
             lr = self.response["lr"]
             momentum = self.response["momentum"]
             label_counts = self.response["label_counts"]
+            src.Log.print_with_color(f"Label distribution of client: {label_counts.tolist()}", "yellow")
 
             if data_name and not self.train_set and not self.label_to_indices:
                 if data_name == "MNIST":

@@ -90,7 +90,10 @@ class Server:
         self.label_counts = None
         self.non_iid_label = None
         if not refresh_each_round:
-            self.non_iid_label = src.Utils.non_iid_rate(num_labels, non_iid_rate)
+            if data_name == "DOMAIN":
+                self.non_iid_label = [np.insert(src.Utils.non_iid_rate(num_labels - 1, non_iid_rate), 0, 1) for _ in range(self.total_clients)]
+            else:
+                self.non_iid_label = [src.Utils.non_iid_rate(num_labels, non_iid_rate) for _ in range(self.total_clients)]
 
         # self.speeds = [325, 788, 857, 915, 727, 270, 340, 219, 725, 228, 677, 259, 945, 433, 222, 979, 339, 864, 858, 621, 242, 790, 807, 368, 259, 776, 218, 845, 294, 340, 731, 595, 799, 524, 779, 581, 456, 574, 754, 771]
         self.speeds = [25, 20, 77, 33, 74, 25, 77, 54, 39, 88, 36, 76, 34, 37, 84, 85, 80, 28, 44, 20, 87, 57, 86, 43,
@@ -116,21 +119,21 @@ class Server:
                                      for _ in range(total_clients)]
             else:
                 if refresh_each_round:
-                    self.non_iid_label = np.insert(src.Utils.non_iid_rate(num_labels-1, non_iid_rate), 0, 1)
-                dga_distribution = ([random.randint(data_range[0]*(num_labels-1), data_range[1]*(num_labels-1))] +
-                                    [random.randint(data_range[0] // non_iid_rate, data_range[1] // non_iid_rate)
-                                    for _ in range(num_labels-1)])
-                self.label_counts = [np.array(dga_distribution) * self.non_iid_label for _ in range(total_clients)]
+                    self.non_iid_label = [np.insert(src.Utils.non_iid_rate(num_labels-1, non_iid_rate), 0, 1) for _ in range(self.total_clients)]
+                self.label_counts = [np.array(
+                                        [random.randint(data_range[0]*(num_labels-1), data_range[1]*(num_labels-1))] +
+                                        [random.randint(data_range[0] // non_iid_rate, data_range[1] // non_iid_rate) for _ in range(num_labels-1)])
+                                     * self.non_iid_label[i] for i in range(total_clients)]
 
         else:
             if data_mode == "even":
                 self.label_counts = [[5000 // total_clients for _ in range(num_labels)] for _ in range(total_clients)]
             else:
                 if refresh_each_round:
-                    self.non_iid_label = src.Utils.non_iid_rate(num_labels, non_iid_rate)
+                    self.non_iid_label = [src.Utils.non_iid_rate(num_labels, non_iid_rate) for _ in range(self.total_clients)]
                 self.label_counts = [np.array([random.randint(data_range[0]//non_iid_rate, data_range[1]//non_iid_rate)
                                               for _ in range(num_labels)]) *
-                                     self.non_iid_label for _ in range(total_clients)]
+                                     self.non_iid_label[i] for i in range(total_clients)]
 
     def send_to_response(self, client_id, message):
         """
