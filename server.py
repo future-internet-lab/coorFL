@@ -115,8 +115,8 @@ class Server:
     def data_distribution(self):
         if data_name == "DOMAIN":
             if data_mode == "even":
-                self.label_counts = [[25000 // total_clients] + [1250 // total_clients for _ in range(num_labels-1)]
-                                     for _ in range(total_clients)]
+                self.label_counts = np.array([[25000 // total_clients] + [1250 // total_clients for _ in range(num_labels-1)]
+                                     for _ in range(total_clients)])
             else:
                 if refresh_each_round:
                     self.non_iid_label = [np.insert(src.Utils.non_iid_rate(num_labels-1, non_iid_rate), 0, 1) for _ in range(self.total_clients)]
@@ -127,7 +127,7 @@ class Server:
 
         else:
             if data_mode == "even":
-                self.label_counts = [[5000 // total_clients for _ in range(num_labels)] for _ in range(total_clients)]
+                self.label_counts = np.array([[5000 // total_clients for _ in range(num_labels)] for _ in range(total_clients)])
             else:
                 if refresh_each_round:
                     self.non_iid_label = [src.Utils.non_iid_rate(num_labels, non_iid_rate) for _ in range(self.total_clients)]
