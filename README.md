@@ -4,11 +4,22 @@
 ![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)
 ![RabbitMQ](https://img.shields.io/badge/RabbitMQ-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)
 
-**Federated Learning** (FL) is a decentralized machine learning approach that enables multiple devices or servers to collaboratively train a model while keeping data localized on each device. Unlike traditional machine learning, where data is centralized in a single location, Federated Learning distributes the training process across devices, ensuring that sensitive or private data remains on users' devices.
+- [More about Federated Learning](#more-about-federated-learning)
+- [Deployment Model](#deployment-model)
+- [Required Packages](#required-packages)
+- [Configuration](#configuration)
+  - [List of DNN model](#list-of-dnn-model)
+- [How to Run](#how-to-run)
+  - [Server](#server)
+  - [Client](#client)
+- [Parameter Files](#parameter-files)
+
+## More about Federated Learning
+
+**Federated Learning** (FL) is a decentralized machine learning approach that enables multiple devices or servers to collaboratively train a model while keeping data localized on each device. Unlike traditional machine learning, where data is centralized in a single location, Federated Learning distributes the training process across devices, ensuring that sensitive or private data remains on user's devices.
 
 Each device processes its data independently to train a local model, sharing only model updates—not raw data—with a central server. The central server then aggregates these updates to improve the global model. This approach enhances privacy, reduces bandwidth consumption, and is especially useful in fields like healthcare, finance, and mobile technology, where data privacy is paramount.
 
-## Key Benefits
 - **Enhanced Privacy**: Data stays on the device, reducing privacy concerns.
 - **Efficient Bandwidth Use**: Only model updates are shared, minimizing data transfer.
 - **Cross-Industry Applicability**: Ideal for industries handling sensitive information, such as healthcare and finance.
@@ -166,4 +177,4 @@ If the `*.pth` file exists, the server will read the file and send the parameter
 
 ---
 
-Version 1.8.0
+Version 1.8.1
