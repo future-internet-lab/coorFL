@@ -12,7 +12,7 @@ import numpy as np
 
 import src.Validation
 import src.Log
-from src.Selection import client_selection_algorithm
+from src.Selection import client_selection_speed_base, client_selection_random
 from src.Cluster import clustering_algorithm
 from src.Utils import DomainDataset, generate_random_array
 
@@ -47,7 +47,7 @@ refresh_each_round = data_distribution["refresh-each-round"]
 
 # Algorithm
 data_mode = config["server"]["data-mode"]
-client_selection_mode = config["server"]["client-selection"]
+client_selection_config = config["server"]["client-selection"]
 client_cluster_config = config["server"]["client-cluster"]
 
 # Clients
@@ -284,17 +284,23 @@ class Server:
         num_datas = [np.sum(self.label_counts[i]) for i in range(len(self.list_clients))]
         total_training_time = np.array(num_datas) / np.array(local_speeds)
 
-        if client_selection_mode:
+        if client_selection_config['enable']:
             if client_cluster_config['enable']:
                 num_cluster, labels, _ = clustering_algorithm(self.label_counts, client_cluster_config)
                 self.logger.log_info(f"Num cluster = {num_cluster}, labels = {labels}")
                 self.selected_client = []
                 for i in range(num_cluster):
                     cluster_client = [index for index, label in enumerate(labels) if label == i]
-                    self.selected_client += client_selection_algorithm(cluster_client, local_speeds, num_datas)
+                    if client_selection_config['mode'] == 'speed':
+                        self.selected_client += client_selection_speed_base(cluster_client, local_speeds, num_datas)
+                    elif client_selection_config['mode'] == 'random':
+                        self.selected_client += client_selection_random(cluster_client)
             else:
-                self.selected_client = client_selection_algorithm([i for i in range(len(self.list_clients))],
-                                                                  local_speeds, num_datas)
+                if client_selection_config['mode'] == 'speed':
+                    self.selected_client = client_selection_speed_base([i for i in range(len(self.list_clients))],
+                                                                       local_speeds, num_datas)
+                elif client_selection_config['mode'] == 'random':
+                    self.selected_client += client_selection_random([i for i in range(len(self.list_clients))])
         else:
             self.selected_client = [i for i in range(len(self.list_clients))]
 

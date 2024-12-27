@@ -16,7 +16,9 @@ server:
     non-iid-rate: 0.5
     refresh-each-round: True
   random-seed: 1
-  client-selection: True
+  client-selection:
+    enable: True
+    mode: speed
   client-cluster:
     enable: True
     cluster: AffinityPropagation

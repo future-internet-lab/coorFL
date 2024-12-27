@@ -99,7 +99,9 @@ server:   # server configuration
     non-iid-rate: 0.5     # non-IID rate, range (0, 1]
     refresh-each-round: True  # if set True, non-IID on label will be reset on each round
   random-seed: 1
-  client-selection: True  # run client selection
+  client-selection:
+    enable: True          # run client selection
+    mode: speed           # selection mode: speed, random
   client-cluster:
     enable: True          # run client cluster
     cluster: AffinityPropagation    # choose cluster algorithm name

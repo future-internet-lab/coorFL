@@ -1,7 +1,8 @@
 import numpy as np
+import random
 
 
-def client_selection_algorithm(indices, all_speeds, all_num_datas):
+def client_selection_speed_base(indices, all_speeds, all_num_datas):
     speeds = np.array(all_speeds)[indices]
     num_datas = np.array(all_num_datas)[indices]
 
@@ -40,3 +41,8 @@ def client_selection_algorithm(indices, all_speeds, all_num_datas):
     training_times = np.array(num_datas) / np.array(speeds)
 
     return [indices[i] for i, value in enumerate(training_times) if value < np.argmax(listY) + 1]
+
+
+def client_selection_random(client_list, num_client=1):
+    num_client = min(num_client, len(client_list))
+    return random.sample(client_list, num_client)
