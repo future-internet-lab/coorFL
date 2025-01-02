@@ -48,21 +48,24 @@ class Validation:
 
         self.test_loader = torch.utils.data.DataLoader(test_set, batch_size=100, shuffle=False, num_workers=2)
 
-    def test(self, avg_state_dict):
+    def test(self, avg_state_dict, device):
         self.model.load_state_dict(avg_state_dict)
+        self.model.to(device)
         # evaluation mode
         self.model.eval()
         if self.data_name == "MNIST" or self.data_name == "CIFAR10":
-            return self.test_image()
+            return self.test_image(device)
         elif self.data_name == "DOMAIN":
-            return self.test_domain()
+            return self.test_domain(device)
         else:
             raise ValueError(f"Not found test function for data name {self.data_name}")
 
-    def test_image(self):
+    def test_image(self, device):
         test_loss = 0
         correct = 0
         for data, target in tqdm(self.test_loader):
+            data = data.to(device)
+            target = target.to(device)
             output = self.model(data)
             test_loss += F.nll_loss(output, target, reduction='sum').item()
             pred = output.data.max(1, keepdim=True)[1]  # get the index of the max log-probability
@@ -80,7 +83,7 @@ class Validation:
 
         return True
 
-    def test_domain(self):
+    def test_domain(self, device):
         all_preds = []
         all_labels = []
 
@@ -88,6 +91,8 @@ class Validation:
 
         with torch.no_grad():
             for inputs, labels in tqdm(self.test_loader):
+                input = input.to(device)
+                labels = labels.to(device)
                 outputs = self.model(inputs)
                 loss = criterion(outputs, labels)
                 preds = (outputs > 0.5).float()

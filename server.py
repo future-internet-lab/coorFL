@@ -20,9 +20,22 @@ from requests.auth import HTTPBasicAuth
 
 parser = argparse.ArgumentParser(description="Split learning framework with controller.")
 
-# parser.add_argument('--topo', type=int, nargs='+', required=True, help='List of client topo, example: --topo 2 3')
+parser.add_argument('--device', type=str, required=False, help='Device of client')
 
 args = parser.parse_args()
+
+device = None
+
+if args.device is None:
+    if torch.cuda.is_available():
+        device = "cuda"
+        print(f"Using device: {torch.cuda.get_device_name(device)}")
+    else:
+        device = "cpu"
+        print(f"Using device: CPU")
+else:
+    device = args.device
+    print(f"Using device: {device}")
 
 with open('config.yaml', 'r') as file:
     config = yaml.safe_load(file)
@@ -216,7 +229,7 @@ class Server:
             self.all_model_parameters = []
         # Server validation
         if save_parameters and validation and self.round_result:
-            self.round_result = self.validation.test(self.avg_state_dict)
+            self.round_result = self.validation.test(self.avg_state_dict, device)
 
         if not self.round_result:
             src.Log.print_with_color(f"Training failed!", "yellow")
