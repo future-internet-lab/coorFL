@@ -179,4 +179,4 @@ If the `*.pth` file exists, the server will read the file and send the parameter
 
 ---
 
-Version 1.8.1
+Version 1.8.2

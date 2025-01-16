@@ -79,9 +79,9 @@ class Validation:
             test_loss, correct, len(self.test_loader.dataset), accuracy))
 
         if np.isnan(test_loss) or math.isnan(test_loss) or abs(test_loss) > 10e5:
-            return False
+            return False, 0.0
 
-        return True
+        return True, accuracy
 
     def test_domain(self, device):
         all_preds = []
@@ -112,4 +112,4 @@ class Validation:
         print(f'Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1-score: {f1:.4f}')
         self.logger.log_info(f'Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1-score: {f1:.4f}')
 
-        return True
+        return True, accuracy*100

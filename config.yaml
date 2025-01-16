@@ -19,7 +19,7 @@ server:
   client-selection:
     enable: True
     mode: speed
-  client-cluster:
+  client-cluster:w
     enable: True
     cluster: AffinityPropagation
     KMeans:
@@ -27,6 +27,7 @@ server:
     AffinityPropagation:
       damping: 0.9
       max_iter: 1000
+  accuracy-drop: 20.0
 
 
 rabbit:

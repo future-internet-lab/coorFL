@@ -4,6 +4,7 @@ import pickle
 import argparse
 import sys
 import yaml
+import signal
 
 import torch
 import requests
@@ -52,6 +53,7 @@ save_parameters = config["server"]["parameters"]["save"]
 load_parameters = config["server"]["parameters"]["load"]
 validation = config["server"]["validation"]
 random_seed = config["server"]["random-seed"]
+accuracy_drop = config["server"]["accuracy-drop"]
 
 data_distribution = config["server"]["data-distribution"]
 data_range = data_distribution["num-data-range"]
@@ -95,6 +97,7 @@ class Server:
         self.total_clients = total_clients
         self.current_clients = 0
         self.updated_clients = 0
+        self.last_accuracy = 0.0
         self.responses = {}  # Save response
         self.list_clients = []
         self.all_model_parameters = []
@@ -228,11 +231,14 @@ class Server:
 
             self.all_model_parameters = []
         # Server validation
+        accuracy = 0.0
         if save_parameters and validation and self.round_result:
-            self.round_result = self.validation.test(self.avg_state_dict, device)
+            self.round_result, accuracy = self.validation.test(self.avg_state_dict, device)
 
         if not self.round_result:
             src.Log.print_with_color(f"Training failed!", "yellow")
+        elif self.last_accuracy - accuracy > accuracy_drop:
+            src.Log.print_with_color(f"Accuracy drop!", "yellow")
         else:
             # Save to files
             torch.save(self.avg_state_dict, f'{model_name}.pth')
@@ -248,6 +254,7 @@ class Server:
         else:
             # Stop training
             self.notify_clients(start=False)
+            delete_old_queues()
             sys.exit()
 
     def notify_clients(self, start=True):
@@ -264,6 +271,8 @@ class Server:
             if load_parameters:
                 if os.path.exists(filepath):
                     state_dict = torch.load(filepath, weights_only=True)
+
+            count_labels = np.zeros(num_labels)
             for i in self.selected_client:
                 client_id = self.list_clients[i]
                 # Request clients to start training
@@ -277,7 +286,10 @@ class Server:
                             "batch_size": batch_size,
                             "lr": lr,
                             "momentum": momentum}
+                count_labels += self.label_counts[i]
                 self.send_to_response(client_id, pickle.dumps(response))
+
+            self.logger.log_info(f"All training labels count = {count_labels.tolist()}")
         else:
             for client_id in self.list_clients:
                 # Request clients to stop process
@@ -345,6 +357,12 @@ class Server:
                                                for i in range(num_models)) // sum(all_client_sizes)
 
 
+def signal_handler(sig, frame):
+    print("\nCatch stop signal Ctrl+C. Stop the program.")
+    delete_old_queues()
+    sys.exit(0)
+
+
 def delete_old_queues():
     url = f'http://{address}:15672/api/queues'
     response = requests.get(url, auth=HTTPBasicAuth(username, password))
@@ -382,6 +400,7 @@ def delete_old_queues():
 
 if __name__ == "__main__":
     delete_old_queues()
+    signal.signal(signal.SIGINT, signal_handler)
     server = Server()
     server.start()
     src.Log.print_with_color("Ok, ready!", "green")
