@@ -19,7 +19,7 @@ server:
   client-selection:
     enable: True
     mode: speed
-  client-cluster:w
+  client-cluster:
     enable: True
     cluster: AffinityPropagation
     KMeans:
@@ -28,6 +28,12 @@ server:
       damping: 0.9
       max_iter: 1000
   accuracy-drop: 20.0
+  stop-when-false: False
+  send-mail:
+    active: False
+    sender-email: 'example1@email.com'
+    password: 'admin'
+    receiver-email: 'example2@email.com'
 
 
 rabbit:

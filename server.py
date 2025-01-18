@@ -16,6 +16,7 @@ import src.Log
 from src.Selection import client_selection_speed_base, client_selection_random
 from src.Cluster import clustering_algorithm
 from src.Utils import DomainDataset, generate_random_array
+from src.Notify import send_mail
 
 from requests.auth import HTTPBasicAuth
 
@@ -59,6 +60,9 @@ data_distribution = config["server"]["data-distribution"]
 data_range = data_distribution["num-data-range"]
 non_iid_rate = data_distribution["non-iid-rate"]
 refresh_each_round = data_distribution["refresh-each-round"]
+
+stop_when_false = config["server"]["stop-when-false"]
+email_config = config["server"]["send-mail"]
 
 # Algorithm
 data_mode = config["server"]["data-mode"]
@@ -237,9 +241,16 @@ class Server:
 
         if not self.round_result:
             src.Log.print_with_color(f"Training failed!", "yellow")
+            send_mail(email_config, f"Quá trình training bị lỗi tại round {self.num_round - self.round + 1}")
+            if stop_when_false:
+                # Stop training
+                self.notify_clients(start=False)
+                delete_old_queues()
+                sys.exit()
         elif self.last_accuracy - accuracy > accuracy_drop:
             src.Log.print_with_color(f"Accuracy drop!", "yellow")
         else:
+            self.last_accuracy = accuracy
             # Save to files
             torch.save(self.avg_state_dict, f'{model_name}.pth')
             self.round -= 1
@@ -253,6 +264,7 @@ class Server:
             self.notify_clients()
         else:
             # Stop training
+            send_mail(email_config, f"Đã hoàn thành quá trình training")
             self.notify_clients(start=False)
             delete_old_queues()
             sys.exit()
