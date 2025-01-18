@@ -73,6 +73,8 @@ client_cluster_config = config["server"]["client-cluster"]
 batch_size = config["learning"]["batch-size"]
 lr = config["learning"]["learning-rate"]
 momentum = config["learning"]["momentum"]
+clip_grad_norm = config["learning"]["clip-grad-norm"]
+
 
 log_path = config["log_path"]
 
@@ -297,7 +299,8 @@ class Server:
                             "label_counts": self.label_counts[i],
                             "batch_size": batch_size,
                             "lr": lr,
-                            "momentum": momentum}
+                            "momentum": momentum,
+                            "clip_grad_norm": clip_grad_norm}
                 count_labels += self.label_counts[i]
                 self.send_to_response(client_id, pickle.dumps(response))
 

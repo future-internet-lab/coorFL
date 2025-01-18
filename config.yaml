@@ -47,3 +47,4 @@ learning:
   learning-rate: 0.05
   momentum: 0.5
   batch-size: 128
+  clip-grad-norm: 0.0

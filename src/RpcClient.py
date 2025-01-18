@@ -72,6 +72,7 @@ class RpcClient:
             batch_size = self.response["batch_size"]
             lr = self.response["lr"]
             momentum = self.response["momentum"]
+            clip_grad_norm = self.response["clip_grad_norm"]
             label_counts = self.response["label_counts"]
             src.Log.print_with_color(f"Label distribution of client: {label_counts.tolist()}", "yellow")
 
@@ -118,7 +119,7 @@ class RpcClient:
             else:
                 criterion = nn.CrossEntropyLoss()
 
-            result = self.train_func(self.model, lr, momentum, train_loader, criterion)
+            result = self.train_func(self.model, lr, momentum, train_loader, criterion, clip_grad_norm)
 
             # Stop training, then send parameters to server
             model_state_dict = self.model.state_dict()

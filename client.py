@@ -41,7 +41,7 @@ else:
 credentials = pika.PlainCredentials(username, password)
 
 
-def train_on_device(model, lr, momentum, trainloader, criterion):
+def train_on_device(model, lr, momentum, trainloader, criterion, clip_grad_norm=None):
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
 
     model.train()
@@ -59,7 +59,8 @@ def train_on_device(model, lr, momentum, trainloader, criterion):
             return False
 
         loss.backward()
-        # torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0)
+        if clip_grad_norm and clip_grad_norm > 0:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_norm)
         optimizer.step()
 
     return True

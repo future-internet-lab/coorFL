@@ -111,6 +111,13 @@ server:   # server configuration
     AffinityPropagation:
       damping: 0.9        # damping factor, default value is 0.5
       max_iter: 1000      # max_iter, default value is `null`
+  accuracy-drop: 20.0     # if bigger than this value, this training round will not be saved
+  stop-when-false: False  # stop training round when this round is false
+  send-mail:
+    active: False         # turn on notification by mail
+    sender-email: 'example1@email.com'
+    password: 'admin'
+    receiver-email: 'example2@email.com'
 
 rabbit:   # RabbitMQ connection configuration
   address: 127.0.0.1    # address
@@ -123,6 +130,8 @@ learning:
   learning-rate: 0.01
   momentum: 1
   batch-size: 256
+  clip-grad-norm: 0.0     # if bigger than 0.0, the model will run clip_grad_norm mode to avoid NaN value
+                          # but the global model will convergence slower
 ```
 
 This configuration is use for server and all clients.
