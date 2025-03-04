@@ -20,7 +20,7 @@ from src.Notify import send_mail
 
 from requests.auth import HTTPBasicAuth
 
-parser = argparse.ArgumentParser(description="Split learning framework with controller.")
+parser = argparse.ArgumentParser(description="Federated learning framework with controller.")
 
 parser.add_argument('--device', type=str, required=False, help='Device of client')
 
@@ -82,6 +82,8 @@ if data_name == "CIFAR10" or data_name == "MNIST":
     num_labels = 10
 elif data_name == "DOMAIN":
     num_labels = 21
+elif data_name == "DOMAIN2":
+    num_labels = 2
 else:
     num_labels = 0
 
