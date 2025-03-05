@@ -20,6 +20,7 @@ from src.Notify import send_mail
 
 from requests.auth import HTTPBasicAuth
 
+from src.interference_cluster import interference
 parser = argparse.ArgumentParser(description="Split learning framework with controller.")
 
 parser.add_argument('--device', type=str, required=False, help='Device of client')
