@@ -76,6 +76,10 @@ lr = config["learning"]["learning-rate"]
 momentum = config["learning"]["momentum"]
 clip_grad_norm = config["learning"]["clip-grad-norm"]
 
+# Cluster
+epoch_round_cluster = config["server"]["epoch_round_cluster"]
+
+
 
 log_path = config["log_path"]
 
@@ -112,6 +116,9 @@ class Server:
         self.round_result = True
         self.label_counts = None
         self.non_iid_label = None
+        self.cluster = True
+        self.all_model_parameters_temp = []
+        self.count_cluster = 0
         if not refresh_each_round:
             if data_name == "DOMAIN":
                 self.non_iid_label = [np.insert(src.Utils.non_iid_rate(num_labels - 1, non_iid_rate), 0, 1) for _ in range(self.total_clients)]
@@ -200,27 +207,43 @@ class Server:
             if len(self.list_clients) == self.total_clients:
                 self.data_distribution()
                 src.Log.print_with_color("All clients are connected. Sending notifications.", "green")
-                self.client_selection()
+                #self.client_selection()
                 src.Log.print_with_color(f"Start training round {self.num_round - self.round + 1}", "yellow")
                 self.notify_clients()
         elif action == "UPDATE":
             data_message = message["message"]
             result = message["result"]
+            cluster = message['cluster']
             src.Log.print_with_color(f"[<<<] Received message from client: {data_message}", "blue")
             self.updated_clients += 1
             # Save client's model parameters
             if not result:
-                self.round_result = False
+                self.round_result = False   
 
             if save_parameters and self.round_result:
                 model_state_dict = message["parameters"]
                 client_size = message["size"]
-                self.all_model_parameters.append({'client_id': client_id, 'weight': model_state_dict,
-                                                  'size': client_size})
 
-            # If consumed all client's parameters
-            if self.updated_clients == len(self.selected_client):
-                self.process_consumer()
+                self.all_model_parameters.append({'client_id': client_id, 'weight': model_state_dict,
+                                                'size': client_size, 'cluster_index': None})
+
+            # If consumed all client's parameters  
+                if self.updated_clients == self.total_clients:
+                    if self.count_cluster == 0:
+                        interference(self.all_model_parameters)
+                        self.cluster = False
+                        for i in range (total_clients):
+                            print(f"client_id: {self.all_model_parameters[i]['client_id']}, cluster_index: {self.all_model_parameters[i]['cluster_index']}")
+                        self.round -=1
+                        self.process_consumer()
+                        
+                    else:
+                        for i in range (total_clients):
+                            print(f"client_id: {self.all_model_parameters[i]['client_id']}, cluster_index: {self.all_model_parameters[i]['cluster_index']}")
+                        self.round -=1
+                        self.process_consumer()
+                        
+                        
 
         # Ack the message
         ch.basic_ack(delivery_tag=method.delivery_tag)
@@ -234,13 +257,18 @@ class Server:
         src.Log.print_with_color("Collected all parameters.", "yellow")
         # TODO: detect model poisoning with self.all_model_parameters at here
         if save_parameters and self.round_result:
-            self.avg_all_parameters()
-
+            self.avg_parameter_each_cluster()
+            self.all_model_parameters_temp = self.all_model_parameters   
             self.all_model_parameters = []
         # Server validation
-        accuracy = 0.0
+        total_accuracy = 0.0
         if save_parameters and validation and self.round_result:
-            self.round_result, accuracy = self.validation.test(self.avg_state_dict, device)
+            a = self.get_weights_for_each_cluster()
+            for cluster_index, cluster_weights in a.items():
+                state_dict = cluster_weights[0]
+                self.round_result, accuracy = self.validation.test(state_dict, device)
+                total_accuracy +=accuracy
+            total_accuracy/=len(a)         
 
         if not self.round_result:
             src.Log.print_with_color(f"Training failed!", "yellow")
@@ -250,13 +278,15 @@ class Server:
                 self.notify_clients(start=False)
                 delete_old_queues()
                 sys.exit()
-        elif self.last_accuracy - accuracy > accuracy_drop:
+        elif self.last_accuracy - total_accuracy > accuracy_drop:
             src.Log.print_with_color(f"Accuracy drop!", "yellow")
         else:
-            self.last_accuracy = accuracy
+            self.last_accuracy = total_accuracy
             # Save to files
-            torch.save(self.avg_state_dict, f'{model_name}.pth')
-            self.round -= 1
+            for cluster_index in set(client['cluster_index'] for client in self.all_model_parameters):
+            # Lưu trọng số trung bình của mỗi cluster vào một tệp riêng biệt
+                torch.save(self.avg_state_dict, f'{model_name}_cluster_{cluster_index}.pth')
+
         self.round_result = True
 
         if self.round > 0:
@@ -280,32 +310,57 @@ class Server:
         """
         # Send message to clients when consumed all clients
         if start:
-            filepath = f'{model_name}.pth'
-            # Read parameters file
-            state_dict = None
-            if load_parameters:
-                if os.path.exists(filepath):
-                    state_dict = torch.load(filepath, weights_only=True)
+            if self.cluster:
+                filepath = f'{model_name}.pth'
+                # Read parameters file
+                state_dict = None
+                if load_parameters:
+                    if os.path.exists(filepath):
+                        state_dict = torch.load(filepath, weights_only=True)
 
-            count_labels = np.zeros(num_labels)
-            for i in self.selected_client:
-                client_id = self.list_clients[i]
-                # Request clients to start training
-                src.Log.print_with_color(f"[>>>] Sent start training request to client {client_id}", "red")
-                response = {"action": "START",
-                            "message": "Server accept the connection!",
-                            "model_name": model_name,
-                            "data_name": data_name,
-                            "parameters": state_dict,
-                            "label_counts": self.label_counts[i],
-                            "batch_size": batch_size,
-                            "lr": lr,
-                            "momentum": momentum,
-                            "clip_grad_norm": clip_grad_norm}
-                count_labels += self.label_counts[i]
-                self.send_to_response(client_id, pickle.dumps(response))
-
-            self.logger.log_info(f"All training labels count = {count_labels.tolist()}")
+                count_labels = np.zeros(num_labels)
+                for i in range(self.total_clients):
+                    client_id = self.list_clients[i]
+                    # Request clients to start training
+                    src.Log.print_with_color(f"[>>>] Sent start training request to client {client_id}", "red")
+                    response = {"action": "START",
+                                "message": "Server accept the connection!",
+                                "model_name": model_name,
+                                "data_name": data_name,
+                                "parameters": state_dict,
+                                "label_counts": self.label_counts[i],
+                                "batch_size": batch_size,
+                                "lr": lr,
+                                "momentum": momentum,
+                                "clip_grad_norm": clip_grad_norm,
+                                "epoch_round_cluster": epoch_round_cluster,
+                                "cluster":self.cluster}
+                    count_labels += self.label_counts[i]
+                    self.send_to_response(client_id, pickle.dumps(response))
+            else:
+                for i in range(self.total_clients):
+                    client_id = self.list_clients[i]
+                    model_state_dict = None
+                    for client in self.all_model_parameters_temp:
+                        if client['client_id'] == client_id:
+                            model_state_dict = client['weight']  
+                            break  
+                    count_labels = np.zeros(num_labels)
+                    src.Log.print_with_color(f"[>>>] Sent start training request to client {client_id}", "red")
+                    response = {"action": "START",
+                                "message": "Server accept the connection!",
+                                "model_name": model_name,
+                                "data_name": data_name,
+                                "parameters": model_state_dict,
+                                "label_counts": self.label_counts[i],
+                                "batch_size": batch_size,
+                                "lr": lr,
+                                "momentum": momentum,
+                                "clip_grad_norm": clip_grad_norm,
+                                "epoch_round_cluster": 1,
+                                "cluster":self.cluster}
+                    count_labels += self.label_counts[i]
+                    self.send_to_response(client_id, pickle.dumps(response))
         else:
             for client_id in self.list_clients:
                 # Request clients to stop process
@@ -372,6 +427,67 @@ class Server:
                 self.avg_state_dict[key] = sum(self.all_model_parameters[i]['weight'][key] * all_client_sizes[i]
                                                for i in range(num_models)) // sum(all_client_sizes)
 
+    def get_weights_for_each_cluster(self):
+     
+        # Tạo một dictionary để lưu trọng số của từng cluster
+        clusters = {}
+
+        # Nhóm client vào các cluster theo cluster_index đã biết
+        for client in self.all_model_parameters_temp:
+            cluster_index = client['cluster_index']
+            model_state_dict = client['weight']
+            
+            # Kiểm tra nếu cluster_index chưa có trong dictionary
+            if cluster_index not in clusters:
+                clusters[cluster_index] = []
+
+            # Thêm trọng số của client vào cluster tương ứng
+            clusters[cluster_index].append(model_state_dict)
+        
+        # Trả về dictionary với các trọng số của từng cluster
+        return clusters
+    def avg_parameter_each_cluster(self):
+        clusters = {}
+        
+        for client in self.all_model_parameters:
+            cluster_index = client['cluster_index']
+            if cluster_index not in clusters:
+                clusters[cluster_index] = []
+            clusters[cluster_index].append(client)
+        
+        for cluster_index, clients_in_cluster in clusters.items():
+            avg_state_dict = None
+            all_client_sizes = [client['size'] for client in clients_in_cluster]
+            
+            for client in clients_in_cluster:
+                model_state_dict = client['weight']
+                
+                if avg_state_dict is None:
+                    
+                    avg_state_dict = model_state_dict
+                else:
+                    
+                    for key in avg_state_dict.keys():
+                        if avg_state_dict[key].dtype != torch.long:
+                            
+                            avg_state_dict[key] += model_state_dict[key] * client['size']
+                        else:
+                            
+                            avg_state_dict[key] += model_state_dict[key] * client['size']
+                  
+            total_size = sum(all_client_sizes)
+            
+            for key in avg_state_dict.keys():
+                if avg_state_dict[key].dtype != torch.long:
+                    avg_state_dict[key] /= total_size
+                else:
+                    avg_state_dict[key] //= total_size
+        
+            
+            for client in clients_in_cluster:
+                client['weight'] = avg_state_dict  
+        self.count_cluster +=1
+        return self.all_model_parameters
 
 def signal_handler(sig, frame):
     print("\nCatch stop signal Ctrl+C. Stop the program.")
