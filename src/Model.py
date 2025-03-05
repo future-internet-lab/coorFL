@@ -3,6 +3,118 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+# ------------------- CNN MODEL FOR CLASSIFICATION ----------------------
+
+class CNNClassifier(nn.Module):
+    def __init__(self, vocab_size=50, embed_dim=16, num_filters=64, kernel_sizes=(3, 5, 7), num_classes=2):
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
+        # Convolutional Layers with multiple kernel sizes
+        self.conv_layers = nn.ModuleList([
+            nn.Conv1d(in_channels=embed_dim, out_channels=num_filters, kernel_size=k, padding="same")
+            for k in kernel_sizes
+        ])
+        self.global_max_pooling = nn.AdaptiveMaxPool1d(1)  # Pool down to (batch, num_filters, 1)
+        # Fully Connected Layer
+        self.fc = nn.Linear(num_filters * len(kernel_sizes), num_classes)
+
+    def forward(self, x):
+        emb = self.embedding(x)  # (batch, seq_len, embed_dim)
+        emb = emb.permute(0, 2, 1)  # Reshape for Conv1D: (batch, embed_dim, seq_len)
+        # Apply multiple convolutional filters
+        conv_outputs = [self.global_max_pooling(nn.functional.relu(conv(emb))).squeeze(2) for conv in self.conv_layers]
+        # Concatenate outputs from all filters
+        x = torch.cat(conv_outputs, dim=1)  # (batch_size, num_filters * len(kernel_sizes))
+        # Fully Connected Layer
+        logits = self.fc(x)  # (batch_size, num_classes)
+        return logits
+
+
+# ------------------- BiLSTM MODEL FOR CLASSIFICATION ----------------------
+
+class BiLSTMClassifier(nn.Module):
+    def __init__(self, vocab_size=50, embed_dim=16, hidden_dim=32, num_classes=2):
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
+        self.bilstm = nn.LSTM(embed_dim, hidden_dim, batch_first=True, bidirectional=True)
+        self.fc = nn.Linear(hidden_dim * 2, num_classes)  # Bi-directional => hidden_dim*2
+
+    def forward(self, x):
+        emb = self.embedding(x)  # (B, L, E)
+        out, (h, c) = self.bilstm(emb)  # out (B,L,2H), h (2,B,H)
+        # Concatenate the last hidden states of both directions
+        h_forward = h[0, :, :]
+        h_backward = h[1, :, :]
+        h_cat = torch.cat((h_forward, h_backward), dim=1)  # (B,2H)
+        logits = self.fc(h_cat)  # (B, num_classes)
+        return logits
+
+
+# ------------------- TRANSFORMER WITH POSITIONAL ENCODING MODEL FOR CLASSIFICATION ----------------------
+
+# Positional Encoding Layer
+class PositionalEncoding(nn.Module):
+    def __init__(self, embed_dim, max_len=50):
+        super().__init__()
+        pe = torch.zeros(max_len, embed_dim)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, embed_dim, 2).float() * (-torch.log(torch.tensor(10000.0)) / embed_dim))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        self.pe = pe.unsqueeze(0)
+
+    def forward(self, x):
+        return x + self.pe[:, :x.size(1), :].to(x.device)
+
+# Transformer Model for DGA Detection
+class PositionalEncodingTransformer(nn.Module):
+    def __init__(self, vocab_size=50, embed_dim=64, nhead=4, num_layers=4, dim_feedforward=256, dropout=0.2, num_classes=2):
+        super().__init__()
+
+        # Embedding Layer
+        self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
+
+        # Positional Encoding
+        self.positional_encoding = PositionalEncoding(embed_dim)
+
+        # Transformer Encoder Layers
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=embed_dim,
+            nhead=nhead,
+            dim_feedforward=dim_feedforward,
+            dropout=dropout,
+            activation="relu",
+            layer_norm_eps=1e-5  # Helps stabilize training
+        )
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+
+        # Fully Connected Output Layer
+        self.fc = nn.Linear(embed_dim, num_classes)
+
+        # Dropout & Layer Normalization
+        self.dropout = nn.Dropout(dropout)
+        self.layer_norm = nn.LayerNorm(embed_dim)
+
+    def forward(self, x):
+        # Embedding Layer
+        emb = self.embedding(x)  # (B, L, E)
+        emb = self.positional_encoding(emb)  # Add positional encodings
+        emb = self.dropout(emb)  # Apply dropout
+        emb = self.layer_norm(emb)  # Apply Layer Normalization
+
+        # Transformer Encoder
+        emb = emb.permute(1, 0, 2)  # Reshape for Transformer (L, B, E)
+        out = self.transformer_encoder(emb)
+
+        # Extract final representation (use first token's output)
+        out_final = out[0, :, :]  # (Batch, Embed_Dim)
+        
+        # Fully Connected Output
+        logits = self.fc(out_final)  # (Batch, Num_Classes)
+
+        return logits
+
+
 class SimpleCNN(nn.Module):
     '''
     SimpleCNN for MNIST

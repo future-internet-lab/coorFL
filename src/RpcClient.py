@@ -11,10 +11,12 @@ import torchvision.transforms as transforms
 from pika.exceptions import AMQPConnectionError
 from collections import defaultdict
 from tqdm import tqdm
+from torch.utils.data import ConcatDataset
 
 import src.Log
 import src.Model
 import src.Utils
+from src.PositionalEncodingTransformer import PositionalEncodingTransformer
 
 
 class RpcClient:
@@ -95,7 +97,11 @@ class RpcClient:
                                                                   transform=transform_train)
                 elif data_name == "DOMAIN":
                     self.train_set = src.Utils.load_dataset("domain_data/domain_train_dataset.pkl")
-
+                elif data_name == "DOMAIN2":
+                    benign_train_ds = src.Utils.load_dataset("domain2/benign_train.pkl")
+                    dga_1_train_ds = src.Utils.load_dataset("domain2/dga_1_train.pkl")
+                    dga_2_train_ds = src.Utils.load_dataset("domain2/dga_2_train.pkl")
+                    self.train_set = ConcatDataset([benign_train_ds, dga_1_train_ds, dga_2_train_ds])
                 else:
                     raise ValueError(f"Data name '{data_name}' is not valid.")
 

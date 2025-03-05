@@ -1,33 +1,35 @@
 import numpy as np
 import random
 import pickle
+import string
 
 import torch
 from torch.utils.data import Dataset, Subset
 
 
+ALPHABET = string.ascii_lowercase + string.digits + "."
+char2idx = {c: i + 1 for i, c in enumerate(ALPHABET)}  # padding=0
+idx2char = {i: c for c, i in char2idx.items()}       # Reverse mapping index -> character
+vocab_size = len(char2idx) + 1
+MAX_LEN = 50
+
+def domain_to_tensor(domain):
+    arr = [char2idx.get(c, 0) for c in domain.lower()][:MAX_LEN]
+    arr += [0] * (MAX_LEN - len(arr))
+    return torch.tensor(arr, dtype=torch.long)
+
 class DomainDataset(Dataset):
-    def __init__(self, domains, labels, max_len):
-        self.domains = domains
-        self.labels = labels
-        self.max_len = max_len
+    def __init__(self, samples):
+        self.samples = samples
 
     def __len__(self):
-        return len(self.domains)
+        return len(self.samples)
 
     def __getitem__(self, idx):
-        domain = self.domains[idx]
-        label = self.labels[idx]
-
-        # Convert domain to integer indices (ASCII encoding for simplicity)
-        encoded = [ord(char) for char in domain]
-        if len(encoded) < self.max_len:
-            encoded += [0] * (self.max_len - len(encoded))  # Padding
-        else:
-            encoded = encoded[:self.max_len]  # Truncate
-
-        return torch.tensor(encoded, dtype=torch.long), torch.tensor(label, dtype=torch.float)
-
+        dom, lbl = self.samples[idx]
+        x = domain_to_tensor(dom)
+        return x, lbl
+    
 
 class CustomDataset(Dataset):
     def __init__(self, dataset, indices):
