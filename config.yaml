@@ -1,14 +1,16 @@
 name: Coordinated Federated Learning
 server:
-  num-round: 50
-  clients: 30
-  model: LeNet
-  data-name: LeNet_CIFAR10
+  num-round: 2
+  clients: 3
+  model: LeNet_MNIST
+  data-name: MNIST
   parameters:
     load: True
     save: True
-  validation: True
+  validation: False
   data-mode: uneven
+  epoch_round_cluster: 2
+  sample_cluster: 10
   data-distribution:
     num-data-range:
       - 0
@@ -37,9 +39,9 @@ server:
 
 
 rabbit:
-  address: 127.0.0.1
-  username: admin
-  password: admin
+  address: 192.168.101.91
+  username: dai 
+  password: dai
 
 log_path: .
 
