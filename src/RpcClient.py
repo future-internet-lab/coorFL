@@ -16,7 +16,6 @@ from torch.utils.data import ConcatDataset
 import src.Log
 import src.Model
 import src.Utils
-from src.PositionalEncodingTransformer import PositionalEncodingTransformer
 
 
 class RpcClient:
