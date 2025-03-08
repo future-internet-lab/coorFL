@@ -2,30 +2,44 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from Utils import vocab_size
+
 
 # ------------------- CNN MODEL FOR CLASSIFICATION ----------------------
 
 class CNNClassifier(nn.Module):
-    def __init__(self, vocab_size=50, embed_dim=16, num_filters=64, kernel_sizes=(3, 5, 7), num_classes=2):
+    def __init__(self, vocab_size=vocab_size, embed_dim=32, num_filters=128, kernel_sizes=(3, 5, 7, 9), num_classes=2,
+                 dropout=0.5):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
-        # Convolutional Layers with multiple kernel sizes
+        # Multi-scale convolutional layers
         self.conv_layers = nn.ModuleList([
-            nn.Conv1d(in_channels=embed_dim, out_channels=num_filters, kernel_size=k, padding="same")
-            for k in kernel_sizes
+            nn.Sequential(
+                nn.Conv1d(embed_dim, num_filters, kernel_size=k, padding='same'),
+                nn.BatchNorm1d(num_filters),
+                nn.ReLU(),
+                nn.AdaptiveMaxPool1d(1)
+            ) for k in kernel_sizes
         ])
-        self.global_max_pooling = nn.AdaptiveMaxPool1d(1)  # Pool down to (batch, num_filters, 1)
+        # Dropout for regularization
+        self.dropout = nn.Dropout(dropout)
         # Fully Connected Layer
-        self.fc = nn.Linear(num_filters * len(kernel_sizes), num_classes)
+        self.fc = nn.Sequential(
+            nn.Linear(num_filters * len(kernel_sizes), 64),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(64, num_classes)
+        )
 
     def forward(self, x):
-        emb = self.embedding(x)  # (batch, seq_len, embed_dim)
-        emb = emb.permute(0, 2, 1)  # Reshape for Conv1D: (batch, embed_dim, seq_len)
-        # Apply multiple convolutional filters
-        conv_outputs = [self.global_max_pooling(nn.functional.relu(conv(emb))).squeeze(2) for conv in self.conv_layers]
-        # Concatenate outputs from all filters
+        emb = self.embedding(x)  # (batch_size, seq_len, embed_dim)
+        emb = emb.permute(0, 2, 1)  # (batch_size, embed_dim, seq_len)
+        # Apply convolution and pooling
+        conv_outputs = [conv(emb).squeeze(2) for conv in self.conv_layers]  # List of (batch_size, num_filters)
+        # Concatenate features
         x = torch.cat(conv_outputs, dim=1)  # (batch_size, num_filters * len(kernel_sizes))
-        # Fully Connected Layer
+        x = self.dropout(x)
+        # Fully Connected layers
         logits = self.fc(x)  # (batch_size, num_classes)
         return logits
 
@@ -33,20 +47,30 @@ class CNNClassifier(nn.Module):
 # ------------------- BiLSTM MODEL FOR CLASSIFICATION ----------------------
 
 class BiLSTMClassifier(nn.Module):
-    def __init__(self, vocab_size=50, embed_dim=16, hidden_dim=32, num_classes=2):
+    def __init__(self, vocab_size=vocab_size, embed_dim=32, hidden_dim=64, num_classes=2, dropout=0.5):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
         self.bilstm = nn.LSTM(embed_dim, hidden_dim, batch_first=True, bidirectional=True)
-        self.fc = nn.Linear(hidden_dim * 2, num_classes)  # Bi-directional => hidden_dim*2
+        self.attention = nn.Linear(hidden_dim * 2, 1)
+        self.dropout = nn.Dropout(dropout)
+        self.fc = nn.Sequential(
+            nn.Linear(hidden_dim * 2, 64),
+            nn.ReLU(),
+            nn.BatchNorm1d(64),
+            nn.Dropout(dropout),
+            nn.Linear(64, num_classes)
+        )
 
     def forward(self, x):
-        emb = self.embedding(x)  # (B, L, E)
-        out, (h, c) = self.bilstm(emb)  # out (B,L,2H), h (2,B,H)
-        # Concatenate the last hidden states of both directions
-        h_forward = h[0, :, :]
-        h_backward = h[1, :, :]
-        h_cat = torch.cat((h_forward, h_backward), dim=1)  # (B,2H)
-        logits = self.fc(h_cat)  # (B, num_classes)
+        emb = self.embedding(x)  # (batch_size, seq_len, embed_dim)
+        bilstm_out, _ = self.bilstm(emb)  # (batch_size, seq_len, hidden_dim*2)
+
+        # Attention Mechanism
+        attn_weights = F.softmax(self.attention(bilstm_out).squeeze(2), dim=1)  # (batch_size, seq_len)
+        attn_output = torch.bmm(attn_weights.unsqueeze(1), bilstm_out).squeeze(1)  # (batch_size, hidden_dim*2)
+
+        attn_output = self.dropout(attn_output)
+        logits = self.fc(attn_output)
         return logits
 
 
@@ -66,9 +90,11 @@ class PositionalEncoding(nn.Module):
     def forward(self, x):
         return x + self.pe[:, :x.size(1), :].to(x.device)
 
+
 # Transformer Model for DGA Detection
 class PositionalEncodingTransformer(nn.Module):
-    def __init__(self, vocab_size=50, embed_dim=64, nhead=4, num_layers=4, dim_feedforward=256, dropout=0.2, num_classes=2):
+    def __init__(self, vocab_size=vocab_size, embed_dim=64, nhead=4, num_layers=4, dim_feedforward=256, dropout=0.2,
+                 num_classes=2):
         super().__init__()
 
         # Embedding Layer
@@ -84,7 +110,8 @@ class PositionalEncodingTransformer(nn.Module):
             dim_feedforward=dim_feedforward,
             dropout=dropout,
             activation="relu",
-            layer_norm_eps=1e-5  # Helps stabilize training
+            layer_norm_eps=1e-5,
+            batch_first=True  # Fix the warning by enabling batch_first
         )
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
 
@@ -102,13 +129,12 @@ class PositionalEncodingTransformer(nn.Module):
         emb = self.dropout(emb)  # Apply dropout
         emb = self.layer_norm(emb)  # Apply Layer Normalization
 
-        # Transformer Encoder
-        emb = emb.permute(1, 0, 2)  # Reshape for Transformer (L, B, E)
-        out = self.transformer_encoder(emb)
+        # Transformer Encoder (no permute needed now)
+        out = self.transformer_encoder(emb)  # (B, L, E)
 
         # Extract final representation (use first token's output)
-        out_final = out[0, :, :]  # (Batch, Embed_Dim)
-        
+        out_final = out[:, 0, :]  # (Batch, Embed_Dim)
+
         # Fully Connected Output
         logits = self.fc(out_final)  # (Batch, Num_Classes)
 
@@ -119,6 +145,7 @@ class SimpleCNN(nn.Module):
     '''
     SimpleCNN for MNIST
     '''
+
     def __init__(self):
         super(SimpleCNN, self).__init__()
         self.conv1 = nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1)
@@ -144,6 +171,7 @@ class LeNet_MNIST(nn.Module):
     '''
     LeNet for MNIST
     '''
+
     def __init__(self):
         super(LeNet_MNIST, self).__init__()
         self.conv1 = nn.Conv2d(1, 6, kernel_size=5, stride=1, padding=2)
@@ -170,6 +198,7 @@ class LeNet_CIFAR10(nn.Module):
     '''
     LeNet for CIFAR10
     '''
+
     def __init__(self):
         super(LeNet_CIFAR10, self).__init__()
         self.conv1 = nn.Conv2d(3, 6, 5)
@@ -321,6 +350,7 @@ class ResNet(nn.Module):
     '''
     ResNet for CIFAR10
     '''
+
     def __init__(self, block, num_blocks, num_classes=10):
         super(ResNet, self).__init__()
         self.in_planes = 64
@@ -378,6 +408,7 @@ class VGG16(torch.nn.Module):
     '''
     VGG16 for CIFAR10
     '''
+
     def __init__(self):
         super(VGG16, self).__init__()
         self.layer1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1)
@@ -493,6 +524,7 @@ class VGG19(torch.nn.Module):
     '''
     VGG19 for CIFAR10
     '''
+
     def __init__(self):
         super(VGG19, self).__init__()
         self.layer1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1)
