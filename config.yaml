@@ -1,20 +1,24 @@
 name: Coordinated Federated Learning
 server:
-  num-round: 50
-  clients: 30
-  model: LeNet
-  data-name: LeNet_CIFAR10
+  num-round: 30
+  clients: 10
+  model: LeNet_MNIST
+  data-name: MNIST
   parameters:
     load: True
     save: True
   validation: True
   data-mode: uneven
+  data-for-cluster: conference-each-client
   data-distribution:
     num-data-range:
       - 0
       - 500
     non-iid-rate: 0.5
     refresh-each-round: True
+  conference-each-client:
+    epoch-round-cluster: 4
+    sample-foward-propagation: 1000
   random-seed: 1
   client-selection:
     enable: True
@@ -37,14 +41,14 @@ server:
 
 
 rabbit:
-  address: 127.0.0.1
+  address: 197.0.0.00
   username: admin
   password: admin
 
 log_path: .
 
 learning:
-  learning-rate: 0.05
+  learning-rate: 0.0005
   momentum: 0.5
   batch-size: 128
-  clip-grad-norm: 0.0
+  clip-grad-norm: 50

@@ -16,6 +16,7 @@ from torch.utils.data import ConcatDataset
 import src.Log
 import src.Model
 import src.Utils
+#from src.PositionalEncodingTransformer import PositionalEncodingTransformer
 
 
 class RpcClient:
@@ -75,6 +76,8 @@ class RpcClient:
             momentum = self.response["momentum"]
             clip_grad_norm = self.response["clip_grad_norm"]
             label_counts = self.response["label_counts"]
+            epoch = self.response["epoch"]
+            cluster = self.response['cluster']
             src.Log.print_with_color(f"Label distribution of client: {label_counts.tolist()}", "yellow")
 
             if data_name and not self.train_set and not self.label_to_indices:
@@ -124,15 +127,22 @@ class RpcClient:
             else:
                 criterion = nn.CrossEntropyLoss()
 
-            result = self.train_func(self.model, lr, momentum, train_loader, criterion, clip_grad_norm)
+            result = self.train_func(self.model, lr, momentum, train_loader, criterion,epoch , clip_grad_norm)
 
             # Stop training, then send parameters to server
             model_state_dict = self.model.state_dict()
             if self.device != "cpu":
                 for key in model_state_dict:
                     model_state_dict[key] = model_state_dict[key].to('cpu')
-            data = {"action": "UPDATE", "client_id": self.client_id, "result": result, "size": sum(label_counts),
-                    "message": "Sent parameters to Server", "parameters": model_state_dict}
+            if cluster == True:
+                data = {"action": "UPDATE", "client_id": self.client_id, "result": result, "size": sum(label_counts),
+                        "message": "Sent parameters to Server", "parameters": model_state_dict, "cluster": True}
+            elif cluster == False:
+                data = {"action": "UPDATE", "client_id": self.client_id, "result": result, "size": sum(label_counts),
+                        "message": "Sent parameters to Server", "parameters": model_state_dict, "cluster": False}
+            else :
+                data = {"action": "UPDATE", "client_id": self.client_id, "result": result, "size": sum(label_counts),
+                        "message": "Sent parameters to Server", "parameters": model_state_dict, "cluster": None}
             src.Log.print_with_color("[>>>] Client sent parameters to server", "red")
             self.send_to_server(data)
             return True
