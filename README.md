@@ -107,7 +107,7 @@ server:   # server configuration
     cluster: AffinityPropagation    # choose cluster algorithm name
     KMeans:
       mode: auto          # if mode is auto, cluster will automate choose the best silhouette score for K value
-                          # if mode is number, K = mode
+                          # if mode is a number, K = mode
     AffinityPropagation:
       damping: 0.9        # damping factor, default value is 0.5
       max_iter: 1000      # max_iter, default value is `null`

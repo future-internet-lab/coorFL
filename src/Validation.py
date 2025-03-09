@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import numpy as np
 import math
 
-from torch.utils.data import DataLoader
+from torch.utils.data import ConcatDataset
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 import src.Model
@@ -45,6 +45,14 @@ class Validation:
         elif self.data_name == "DOMAIN":
             test_set = src.Utils.load_dataset("domain_data/domain_test_dataset.pkl")
             test_set = src.Utils.modify_labels(test_set)
+        elif self.data_name == "DOMAIN2":
+            benign_test_ds = src.Utils.load_dataset("domain2/benign_test.pkl")
+            dga_1_test_ds = src.Utils.load_dataset("domain2/dga_1_test.pkl")
+            dga_2_test_ds = src.Utils.load_dataset("domain2/dga_2_test.pkl")
+            test_set = ConcatDataset([benign_test_ds, dga_1_test_ds, dga_2_test_ds])
+        else:
+            raise ValueError(f"Do not have data name '{self.data_name}.")
+
 
         self.test_loader = torch.utils.data.DataLoader(test_set, batch_size=100, shuffle=False, num_workers=2)
 
@@ -57,6 +65,9 @@ class Validation:
             return self.test_image(device)
         elif self.data_name == "DOMAIN":
             return self.test_domain(device)
+        elif self.data_name == "DOMAIN2":
+            return self.test_domain_2(device)
+            pass
         else:
             raise ValueError(f"Not found test function for data name {self.data_name}")
 
@@ -113,3 +124,22 @@ class Validation:
         self.logger.log_info(f'Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1-score: {f1:.4f}')
 
         return True, accuracy*100
+    
+    def test_domain_2(self, device):
+        self.model.eval()
+        test_correct = 0
+        test_samples = 0
+
+        with torch.no_grad():
+            for x_batch, y_batch in tqdm(self.test_loader):
+                x_batch = x_batch.to(device)
+                y_batch = y_batch.to(device)
+                logits = self.model(x_batch)
+                preds = logits.argmax(dim=1)
+                test_correct += (preds == y_batch).sum().item()
+                test_samples += y_batch.size(0)
+
+        test_acc = test_correct / test_samples
+
+        print(f"Test Acc={test_acc:.4f}")
+        return True, test_acc*100
