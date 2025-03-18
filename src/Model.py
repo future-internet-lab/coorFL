@@ -1,9 +1,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-from Utils import vocab_size
-
+import string
+ALPHABET = string.ascii_lowercase + string.digits + "."
+char2idx = {c: i + 1 for i, c in enumerate(ALPHABET)}  # padding=0
+idx2char = {i: c for c, i in char2idx.items()}       # Reverse mapping index -> character
+vocab_size = len(char2idx) + 1
+MAX_LEN = 50
 
 # ------------------- CNN MODEL FOR CLASSIFICATION ----------------------
 
@@ -140,7 +143,103 @@ class PositionalEncodingTransformer(nn.Module):
 
         return logits
 
+# ------------------- AUTOENCODER FOR ANOMALY DETECTION ----------------------
 
+class DomainVAE(nn.Module):
+    def __init__(self, vocab_size, embed_dim=16, hidden_dim=64, latent_dim=32, dropout_p=0.2):
+        """
+        vocab_size: kích thước từ vựng
+        embed_dim: kích thước embedding cho từng token
+        hidden_dim: số chiều ẩn của LSTM (sử dụng BiLSTM nên kết quả sẽ gấp đôi)
+        latent_dim: kích thước không gian latent
+        dropout_p: tỷ lệ dropout
+        """
+        super().__init__()
+        self.vocab_size = vocab_size
+        self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
+        self.dropout = nn.Dropout(dropout_p)
+        
+        # Encoder sử dụng BiLSTM, hidden_dim nhân đôi vì hai hướng
+        self.encoder_lstm = nn.LSTM(embed_dim, hidden_dim, batch_first=True, bidirectional=True)
+        # Từ hidden state kết hợp, ta tính cả trung bình (mu) và log-variance (logvar)
+        self.fc_mu = nn.Linear(hidden_dim * 2, latent_dim)
+        self.fc_logvar = nn.Linear(hidden_dim * 2, latent_dim)
+        
+        # Decoder
+        self.fc_dec = nn.Linear(latent_dim, hidden_dim)
+        self.decoder_lstm = nn.LSTM(embed_dim, hidden_dim, batch_first=True)
+        self.fc_out = nn.Linear(hidden_dim, vocab_size)
+
+    def encode(self, x):
+        """
+        Đầu vào: x có shape (B, L)
+        Đầu ra: mu và logvar có shape (B, latent_dim)
+        """
+        emb = self.dropout(self.embedding(x))  # (B, L, embed_dim)
+        enc_out, (h, c) = self.encoder_lstm(emb)  # h có shape (num_directions, B, hidden_dim)
+        # Ghép 2 hidden states từ cả 2 chiều
+        h_cat = torch.cat((h[0], h[1]), dim=1)  # (B, hidden_dim*2)
+        mu = self.fc_mu(h_cat)      # (B, latent_dim)
+        logvar = self.fc_logvar(h_cat)  # (B, latent_dim)
+        return mu, logvar
+
+    def reparameterize(self, mu, logvar):
+        """
+        Áp dụng trick reparameterization để lấy mẫu z từ phân phối N(mu, sigma^2)
+        """
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        return mu + eps * std
+
+    def decode(self, z, max_len=MAX_LEN):
+        """
+        Giải mã latent vector z thành chuỗi domain
+        """
+        h_dec = self.fc_dec(z).unsqueeze(0)  # (1, B, hidden_dim)
+        c_dec = torch.zeros_like(h_dec)       # (1, B, hidden_dim)
+        
+        # Sử dụng input ban đầu là các token 0 (có thể hiểu là token <SOS>)
+        dec_input = torch.zeros((z.size(0), max_len), device=z.device, dtype=torch.long)  # (B, L)
+        emb_dec = self.embedding(dec_input)  # (B, L, embed_dim)
+        
+        dec_out, (h_new, c_new) = self.decoder_lstm(emb_dec, (h_dec, c_dec))  # (B, L, hidden_dim)
+        logits = self.fc_out(dec_out)  # (B, L, vocab_size)
+        return logits
+
+    def forward(self, x):
+        """
+        Forward: from x -> (mu, logvar) -> sample z -> decode -> logits
+        """
+        mu, logvar = self.encode(x)
+        z = self.reparameterize(mu, logvar)
+        logits = self.decode(z, max_len=x.size(1))
+        return logits, mu, logvar
+
+    def loss_function(self, x, logits, mu, logvar):
+        """
+        Hàm loss tổng hợp: reconstruction loss (cross entropy) và KL divergence
+        """
+        B, L = x.size()
+        # Tính reconstruction loss cho từng timestep
+        logits_2d = logits.view(B * L, -1)
+        target_1d = x.view(B * L)
+        recon_loss = F.cross_entropy(logits_2d, target_1d, ignore_index=0)
+        
+        # Tính KL divergence
+        kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        kl_loss = kl_loss / B  # Có thể chia theo batch size
+        
+        return recon_loss + kl_loss, recon_loss, kl_loss
+    
+    def compute_reconstruction_error(self, x):
+        """
+        Tính loss tổng hợp làm chỉ số error để phân biệt benign và DGA.
+        """
+        self.eval()
+        with torch.no_grad():
+            logits, mu, logvar = self.forward(x)
+            loss, recon_loss, kl_loss = self.loss_function(x, logits, mu, logvar)
+        return loss.item()
 class SimpleCNN(nn.Module):
     '''
     SimpleCNN for MNIST
