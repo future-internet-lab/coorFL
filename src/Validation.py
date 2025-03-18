@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import numpy as np
 import math
 
-from torch.utils.data import ConcatDataset
+from torch.utils.data import DataLoader, ConcatDataset
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 import src.Model
@@ -39,7 +39,7 @@ class Validation:
         elif self.data_name == "CIFAR10":
             transform_test = transforms.Compose([
                 transforms.ToTensor(),
-                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
             ])
             test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
         elif self.data_name == "DOMAIN":
@@ -49,10 +49,9 @@ class Validation:
             benign_test_ds = src.Utils.load_dataset("domain2/benign_test.pkl")
             dga_1_test_ds = src.Utils.load_dataset("domain2/dga_1_test.pkl")
             dga_2_test_ds = src.Utils.load_dataset("domain2/dga_2_test.pkl")
-            test_set = ConcatDataset([benign_test_ds, dga_1_test_ds, dga_2_test_ds])
-        else:
-            raise ValueError(f"Do not have data name '{self.data_name}.")
-
+            dga_3_test_ds = src.Utils.load_dataset("domain2/dga_3_test.pkl")
+            dga_4_test_ds = src.Utils.load_dataset("domain2/dga_4_test.pkl")
+            test_set = ConcatDataset([benign_test_ds, dga_1_test_ds, dga_2_test_ds,dga_3_test_ds,dga_4_test_ds])
 
         self.test_loader = torch.utils.data.DataLoader(test_set, batch_size=100, shuffle=False, num_workers=2)
 
@@ -67,7 +66,6 @@ class Validation:
             return self.test_domain(device)
         elif self.data_name == "DOMAIN2":
             return self.test_domain_2(device)
-            pass
         else:
             raise ValueError(f"Not found test function for data name {self.data_name}")
 
@@ -124,22 +122,28 @@ class Validation:
         self.logger.log_info(f'Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1-score: {f1:.4f}')
 
         return True, accuracy*100
-    
     def test_domain_2(self, device):
         self.model.eval()
-        test_correct = 0
-        test_samples = 0
+        all_preds = []
+        all_labels = []
 
         with torch.no_grad():
             for x_batch, y_batch in tqdm(self.test_loader):
                 x_batch = x_batch.to(device)
                 y_batch = y_batch.to(device)
                 logits = self.model(x_batch)
-                preds = logits.argmax(dim=1)
-                test_correct += (preds == y_batch).sum().item()
-                test_samples += y_batch.size(0)
+                preds = logits.argmax(dim=1)  # Get predicted class indices
+                all_preds.extend(preds.cpu().numpy())
+                all_labels.extend(y_batch.cpu().numpy())
 
-        test_acc = test_correct / test_samples
+        # Calculate metrics
+        accuracy = accuracy_score(all_labels, all_preds)
+        precision = precision_score(all_labels, all_preds, average='weighted', zero_division=0)
+        recall = recall_score(all_labels, all_preds, average='weighted', zero_division=0)
+        f1 = f1_score(all_labels, all_preds, average='weighted', zero_division=0)
 
-        print(f"Test Acc={test_acc:.4f}")
-        return True, test_acc*100
+        # Log the results
+        print(f'Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1-score: {f1:.4f}')
+        self.logger.log_info(f'Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1-score: {f1:.4f}')
+
+        return True, accuracy * 100
