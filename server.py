@@ -155,7 +155,8 @@ class Server:
                     [random.randint(data_range[0] // non_iid_rate, data_range[1] // non_iid_rate) for _ in
                      range(num_labels - 1)])
                                      * self.non_iid_label[i] for i in range(total_clients)]
-
+        elif data_name == "DOMAIN2":
+                print("")
         else:
             if data_mode == "even":
                 self.label_counts = np.array(
