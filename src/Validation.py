@@ -39,7 +39,7 @@ class Validation:
         elif self.data_name == "CIFAR10":
             transform_test = transforms.Compose([
                 transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
             ])
             test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
         elif self.data_name == "DOMAIN":
