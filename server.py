@@ -145,8 +145,14 @@ class Server:
                 self.non_iid_label = [src.Utils.non_iid_rate(num_labels, non_iid_rate) for _ in range(self.total_clients)]
 
         # self.speeds = [325, 788, 857, 915, 727, 270, 340, 219, 725, 228, 677, 259, 945, 433, 222, 979, 339, 864, 858, 621, 242, 790, 807, 368, 259, 776, 218, 845, 294, 340, 731, 595, 799, 524, 779, 581, 456, 574, 754, 771]
-        self.speeds = [25, 20, 77, 33, 74, 25, 77, 54, 39, 88, 36, 76, 34, 37, 84, 85, 80, 28, 44, 20, 87, 57, 86, 43,
-                       90, 58, 23, 41, 35, 41, 21, 60, 92, 81, 37, 30, 85, 79, 84, 22]
+        #self.speeds = [25, 20, 77, 33, 74, 25, 77, 54, 39, 88, 36, 76, 34, 37, 84, 85, 80, 28, 44, 20, 87, 57, 86, 43,
+        #             90, 58, 23, 41, 35, 41, 21, 60, 92, 81, 37, 30, 85, 79, 84, 22]
+        if model_name == "PositionalEncodingTransformer":
+            self.speeds = [random.randrange(224, 1792) for _ in range(total_clients)]
+        elif model_name == "CNNClassifier":
+            self.speeds = [random.randrange(702, 5616) for _ in range(total_clients)]
+        elif model_name == "BiLSTMClassifier":
+            self.speeds = [random.randrange(1170, 9360) for _ in range(total_clients)]
         self.selected_client = []
 
         self.logger = src.Log.Logger(f"{log_path}/app.log")
