@@ -16,7 +16,7 @@ import src.Log
 from tqdm import tqdm
 
 class Validation:
-    def __init__(self, model_name, data_name, logger, num_model =1):
+    def __init__(self, model_name, data_name, logger):
         self.model_name = model_name
         self.data_name = data_name
         self.logger = logger
