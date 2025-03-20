@@ -23,7 +23,6 @@ client_id = uuid.uuid4()
 address = config["rabbit"]["address"]
 username = config["rabbit"]["username"]
 password = config["rabbit"]["password"]
-data_name = config["server"]["data-name"]
 
 device = None
 
@@ -42,7 +41,7 @@ else:
 credentials = pika.PlainCredentials(username, password)
 
 
-def train_on_device(model, lr, momentum, trainloader, criterion, epoch = 1, clip_grad_norm=None):
+def train_on_device(model, lr, momentum, trainloader, data_name, criterion, epoch = 1, clip_grad_norm=None):
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
 
     model.train()

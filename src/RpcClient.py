@@ -148,7 +148,7 @@ class RpcClient:
             else:
                 criterion = nn.CrossEntropyLoss()
 
-            result = self.train_func(self.model, lr, momentum, train_loader, criterion,epoch , clip_grad_norm)
+            result = self.train_func(self.model, lr, momentum, train_loader, data_name, criterion,epoch , clip_grad_norm)
 
             # Stop training, then send parameters to server
             model_state_dict = self.model.state_dict()
