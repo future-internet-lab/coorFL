@@ -489,7 +489,9 @@ class Server:
             # Server validation
             accuracy = 0.0
             if save_parameters and validation and self.round_result:
-                self.round_result, accuracy = self.validation.test(self.avg_state_dict, device)
+                state_dict = []
+                state_dict.append(self.avg_state_dict)
+                self.round_result = self.validation.test(self.avg_state_dict, device)
 
             if not self.round_result:
                 src.Log.print_with_color(f"Training failed!", "yellow")
@@ -572,13 +574,11 @@ class Server:
                 total_accuracy = 0.0
                 if save_parameters and validation and self.round_result:
                     a = self.get_weights_for_each_cluster()
+                    state_dict = []
                     for cluster_index, cluster_weights in a.items():
-                        print(f"Accuracy of {cluster_index}")
-                        state_dict = cluster_weights
-                        self.round_result, accuracy = self.validation.test(state_dict, device)
-                        total_accuracy += accuracy
-                    total_accuracy /= len(a)  # Tính độ chính xác trung bình của các cluster
-                    print(f"Accuracy: {total_accuracy}")
+                        state_dict.append(cluster_weights)
+
+                    self.round_result = self.validation.test(state_dict, device)
                 self.all_model_parameters = []
                 if not self.round_result:
                     src.Log.print_with_color(f"Training failed!", "yellow")
@@ -621,7 +621,9 @@ class Server:
             # Server validation
             accuracy = 0.0
             if save_parameters and validation and self.round_result:
-                self.round_result, accuracy = self.validation.test(self.avg_state_dict, device)
+                state_dict = []
+                state_dict.append(self.avg_state_dict)
+                self.round_result= self.validation.test(self.avg_state_dict, device)
 
             if not self.round_result:
                 src.Log.print_with_color(f"Training failed!", "yellow")
