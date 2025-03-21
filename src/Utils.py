@@ -4,7 +4,7 @@ import pickle
 import string
 
 import torch
-from torch.utils.data import Dataset, Subset
+from torch.utils.data import Dataset, Subset, ConcatDataset
 
 
 ALPHABET = string.ascii_lowercase + string.digits + "."
@@ -79,3 +79,27 @@ def load_dataset(file_path):
 def modify_labels(dataset):
     dataset.labels = [min(label, 1) for label in dataset.labels]
     return dataset
+
+def extract_latent_features(model, dataloader, device):
+    """
+    Trích xuất vector latent representation từ DomainVAE cho mỗi sample.
+    """
+    model.eval()
+    features = []
+    labels = []
+    with torch.no_grad():
+        for batch in dataloader:
+            x, y = batch
+            x = x.to(device)
+            mu, _ = model.encode(x)
+            features.append(mu.cpu().numpy())
+            labels.append(y.cpu().numpy())
+
+    return np.vstack(features), np.hstack(labels)
+
+
+def dga_label(num_clients):
+    random.seed(1)
+    all_train_datasets = 4
+    dga_distribution = [random.randint(0, all_train_datasets-1) for _ in range(num_clients)]
+    return dga_distribution
