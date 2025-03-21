@@ -183,7 +183,7 @@ class Server:
             if data_mode == "even":
                 if refresh_each_round:
                   self.dga_label = src.Utils.dga_label(self.total_clients)
-                self.label_counts = np.array([[15000// total_clients] + [15000 // total_clients for _ in range(num_labels-1)]
+                self.label_counts = np.array([[150000// total_clients] + [150000 // total_clients for _ in range(num_labels-1)]
                                      for _ in range(total_clients)])
                 self.logger.log_info(f'DGA_Label: {self.dga_label}')
                 print(f"DGA label: {self.dga_label} ")
