@@ -9,20 +9,20 @@ server:
     save: True
   validation: True
   data-mode: even
-  data-for-cluster: VAE
+  data-for-cluster: interference-each-client
   data-distribution:
     num-data-range:
-      - 0
-      - 500
+      - 2500
+      - 7500
     non-iid-rate: 0.5
     refresh-each-round: True
   interference-each-client:
-    epoch-round-cluster: 10
+    epoch-round-cluster: 1
     sample-foward-propagation: 1000
   random-seed: 1
   client-selection:
     enable: True
-    mode: speed
+    mode: random
   client-cluster:
     enable: True
     cluster: AffinityPropagation
