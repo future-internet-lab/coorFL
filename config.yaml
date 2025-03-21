@@ -31,6 +31,8 @@ server:
     AffinityPropagation:
       damping: 0.9
       max_iter: 1000
+    Clustering_Hierarchical:
+      threshold: 0.4
   accuracy-drop: 20.0
   stop-when-false: False
   send-mail:
