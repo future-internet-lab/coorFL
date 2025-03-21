@@ -1,6 +1,8 @@
 from sklearn.cluster import KMeans, AffinityPropagation
 from sklearn.metrics import silhouette_score
-
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
+from scipy.cluster.hierarchy import linkage, fcluster
 
 def clustering_algorithm(label_counts, client_cluster_config):
     cluster_name = client_cluster_config['cluster']
@@ -10,6 +12,9 @@ def clustering_algorithm(label_counts, client_cluster_config):
     elif cluster_name == 'AffinityPropagation':
         cluster_config = client_cluster_config['AffinityPropagation']
         return clustering_AffinityPropagation(label_counts, cluster_config)
+    elif cluster_name == 'Clustering_Hierarchical':
+        cluster_config = client_cluster_config['Clustering_Hierarchical']
+        return Clustering_Hierarchical(label_counts, cluster_config)
     else:
         raise ValueError(f"Cluster '{cluster_name}' algorithm not contain in Cluster processing.")
 
@@ -57,3 +62,24 @@ def clustering_AffinityPropagation(label_counts, config):
     labels = affinity_propagation.labels_
 
     return len(cluster_centers_indices), labels, None
+
+def Clustering_Hierarchical(interference_output, config):
+    threshold = config['threshold']  # Lấy ngưỡng từ cấu hình
+    
+    # Tính toán ma trận tương đồng Cosine giữa các client
+    similarity_matrix = cosine_similarity(interference_output)
+    
+    # Chuyển ma trận tương đồng thành khoảng cách (distance matrix)
+    distance_matrix = 1 - similarity_matrix  # Cosine distance = 1 - Cosine similarity
+    
+    # Áp dụng thuật toán phân cụm phân cấp (Hierarchical Clustering)
+    Z = linkage(distance_matrix, method='ward')
+    
+    # Dự đoán nhóm của các client dựa trên ngưỡng (threshold)
+    labels = fcluster(Z, threshold, criterion='distance')
+    
+    # Số lượng cụm (clusters)
+    num_clusters = len(np.unique(labels))  # Đếm số lượng nhóm (cụm)
+    
+    return num_clusters, labels, None
+

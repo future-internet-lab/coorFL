@@ -129,6 +129,7 @@ class Validation:
         return True
     def test_domain_2(self, device, avg_state_dict):
         for i in range(len(avg_state_dict)):
+            print(f"Loading model state dict {i+1}/{len(avg_state_dict)}")
             self.model.load_state_dict(avg_state_dict[i])
             self.model.to(device)
             self.model.eval()
@@ -141,7 +142,7 @@ class Validation:
 
                         self.all_preds.extend(preds.cpu().numpy().flatten())
                         self.all_labels.extend(y_batch.cpu().numpy().flatten())
-                        
+        print("Complete")     
         accuracy = accuracy_score(self.all_labels, self.all_preds)
         precision = precision_score(self.all_labels, self.all_preds, zero_division=0)
         recall = recall_score(self.all_labels, self.all_preds, zero_division=0)
