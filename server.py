@@ -190,7 +190,7 @@ class Server:
             else:
                 if refresh_each_round:
                   self.dga_label = src.Utils.dga_label(self.total_clients)
-                self.label_counts = np.random.randint(250, 750, size=(total_clients, num_labels))
+                self.label_counts = np.random.randint(data_range[0], data_range[1], size=(total_clients, num_labels))
                 self.logger.log_info(f'DGA_Label: {self.dga_label}')
                 print(f"DGA label: {self.dga_label} ")
             if data_for_cluster == "VAE":
@@ -567,19 +567,16 @@ class Server:
                 # TODO: detect model poisoning with self.all_model_parameters at here
                 if save_parameters and self.round_result:
                     
+                    self.avg_all_parameters()
                     self.avg_parameter_each_cluster()
-                    cluster_weights = {}
+                    self.all_model_parameters = []
 
                 # Server validation
-                total_accuracy = 0.0
+                accuracy = 0.0
                 if save_parameters and validation and self.round_result:
-                    a = self.get_weights_for_each_cluster()
                     state_dict = []
-                    for cluster_index, cluster_weights in a.items():
-                        state_dict.append(cluster_weights)
-
+                    state_dict.append(self.avg_state_dict)
                     self.round_result = self.validation.test(state_dict, device)
-                self.all_model_parameters = []
                 if not self.round_result:
                     src.Log.print_with_color(f"Training failed!", "yellow")
                     send_mail(email_config, f"Quá trình training bị lỗi tại round {self.num_round - self.round + 1}")
@@ -588,10 +585,12 @@ class Server:
                         self.notify_clients(start=False)
                         delete_old_queues()
                         sys.exit()
-                elif self.last_accuracy - total_accuracy > accuracy_drop:
+                elif self.last_accuracy - accuracy > accuracy_drop: 
                     src.Log.print_with_color(f"Accuracy drop!", "yellow")
                 else:
-                    self.last_accuracy = total_accuracy
+                    self.last_accuracy = accuracy
+                    # Save to files
+                    torch.save(self.avg_state_dict, f'{model_name}.pth')
                     self.round -= 1
 
                 self.round_result = True
@@ -601,7 +600,6 @@ class Server:
                     src.Log.print_with_color(f"Start training round {self.num_round - self.round + 1}", "yellow")
                     self.data_distribution()
                     self.client_selection()
-                   
                     self.notify_clients()
                 else:
                     # Stop training
@@ -697,7 +695,6 @@ class Server:
             elif data_for_cluster == 'interference-each-client':
                 if self.cluster == True:
                     filepath = f'{model_name}.pth'
-                # Read parameters file
                     state_dict = None
                     if load_parameters:
                         if os.path.exists(filepath):
@@ -726,7 +723,6 @@ class Server:
                         self.send_to_response(client_id, pickle.dumps(response))
                 if self.cluster == False:
                     for i in self.selected_client:
-                        #client_id = self.list_clients[i]
                         client_id = self.all_model_parameters_temp[i]["client_id"]
                         model_state_dict = None
                         cluster_index1 = None
@@ -931,27 +927,13 @@ class Server:
             else:
                 self.avg_state_dict[key] = sum(self.all_model_parameters[i]['weight'][key] * all_client_sizes[i]
                                                for i in range(num_models)) // sum(all_client_sizes)
-    def get_weights_for_each_cluster(self):
-     
-        clusters = {}
-
-        for client in self.all_model_parameters_temp:
-            cluster_index = client['cluster_index']
-            model_state_dict = client['weight']
-
-            # Nếu cluster_index chưa có trong danh sách, lưu client này làm đại diện
-            if cluster_index not in clusters:
-                clusters[cluster_index] = model_state_dict 
-
-        return clusters
-
-
 
     def avg_parameter_each_cluster(self):
         clusters = {}
 
         # Gom nhóm client theo cluster_index
         for client in self.all_model_parameters:
+            print("Recived")
             print(client["cluster_index"])
             if 'cluster_index' not in client:
                 raise KeyError(f"Client {client.get('client_id', 'Unknown ID')} does not have 'cluster_index'. Please ensure it is set correctly.")
@@ -1011,8 +993,6 @@ class Server:
                 client['weight'] = cluster_weights[cluster_index]
                         
         return self.all_model_parameters
-
-
     
 def signal_handler(sig, frame):
     print("\nCatch stop signal Ctrl+C. Stop the program.")
