@@ -845,12 +845,8 @@ class Server:
                     print(f"The number of clutser: {self.num_cluster}")
                     self.logger.log_info(f"Num cluster = {self.num_cluster}, labels = {self.labels}")
                     self.selected_client = []
-                    for i in range(self.num_cluster):
-                        cluster_client = [index for index, label in enumerate(self.labels) if label == i]
-                        if client_selection_config['mode'] == 'speed':
-                            self.selected_client += client_selection_speed_base(cluster_client, local_speeds, num_datas)
-                        elif client_selection_config['mode'] == 'random':
-                            self.selected_client += client_selection_random(cluster_client)
+                    for i in range(self.total_clients):
+                        self.selected_client  = client_selection_random_rate(self.total_clients,0.3)
                 else:
                     if client_selection_config['mode'] == 'speed':
                         self.selected_client = client_selection_speed_base([i for i in range(len(self.list_clients))],
@@ -887,8 +883,8 @@ class Server:
                         cluster_client = [index for index, label in enumerate(labels) if label == i]
                         if client_selection_config['mode'] == 'speed':
                             self.selected_client += client_selection_speed_base(cluster_client, local_speeds, num_datas)
-                        elif client_selection_config['mode'] == 'random':
-                            self.selected_client += client_selection_random_rate(cluster_client,0.3)
+                        elif client_selection_config['mode'] == 'random_rate':
+                            self.selected_client += client_selection_random(cluster_client)
                 else:
                     if client_selection_config['mode'] == 'speed':
                         self.selected_client = client_selection_speed_base([i for i in range(len(self.list_clients))],
