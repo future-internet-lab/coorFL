@@ -46,3 +46,6 @@ def client_selection_speed_base(indices, all_speeds, all_num_datas):
 def client_selection_random(client_list, num_client=1):
     num_client = min(num_client, len(client_list))
     return random.sample(client_list, num_client)
+def client_selection_random_rate(client_list, rate = 0.3, num_client=1):
+    num_client = max(1, int(len(client_list) * rate))  
+    return random.sample(client_list, num_client)

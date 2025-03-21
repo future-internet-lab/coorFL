@@ -17,7 +17,7 @@ from tqdm import tqdm
 import src.Utils
 import src.Validation
 import src.Log
-from src.Selection import client_selection_speed_base, client_selection_random
+from src.Selection import client_selection_speed_base, client_selection_random, client_selection_random_rate
 from src.Cluster import clustering_algorithm
 from src.Utils import DomainDataset, generate_random_array
 from src.Notify import send_mail
@@ -888,7 +888,7 @@ class Server:
                         if client_selection_config['mode'] == 'speed':
                             self.selected_client += client_selection_speed_base(cluster_client, local_speeds, num_datas)
                         elif client_selection_config['mode'] == 'random':
-                            self.selected_client += client_selection_random(cluster_client)
+                            self.selected_client += client_selection_random_rate(cluster_client,0.3)
                 else:
                     if client_selection_config['mode'] == 'speed':
                         self.selected_client = client_selection_speed_base([i for i in range(len(self.list_clients))],
