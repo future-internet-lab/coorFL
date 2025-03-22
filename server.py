@@ -845,14 +845,8 @@ class Server:
                     print(f"The number of clutser: {self.num_cluster}")
                     self.logger.log_info(f"Num cluster = {self.num_cluster}, labels = {self.labels}")
                     self.selected_client = []
-                    for i in range(self.total_clients):
-                        self.selected_client  = client_selection_random_rate(self.total_clients,0.3)
-                else:
-                    if client_selection_config['mode'] == 'speed':
-                        self.selected_client = client_selection_speed_base([i for i in range(len(self.list_clients))],
-                                                                        local_speeds, num_datas)
-                    elif client_selection_config['mode'] == 'random':
-                        self.selected_client += client_selection_random([i for i in range(len(self.list_clients))])
+                    self.selected_client = client_selection_random_rate(total_clients,0.2)
+                    print(f"Selected client: {self.selected_client}")
             else:
                 if self.round == self.num_round - 1 :
                     self.num_cluster, self.labels, _ = clustering_algorithm(self.interference_each_client(), client_cluster_config)
