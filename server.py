@@ -135,6 +135,7 @@ class Server:
         self.dga_label = []
         self.label_to_indices_list = []
         self.all_features = []
+        self.training_time = None
         if not refresh_each_round:
             if data_name == "DOMAIN":
                 self.non_iid_label = [np.insert(src.Utils.non_iid_rate(num_labels - 1, non_iid_rate), 0, 1) for _ in range(self.total_clients)]
@@ -576,7 +577,9 @@ class Server:
                 if save_parameters and validation and self.round_result:
                     state_dict = []
                     state_dict.append(self.avg_state_dict)
-                    self.round_result = self.validation.test(state_dict, device)
+                    self.round_result,accuracy, precision, recall, f1 = self.validation.test(state_dict, device)
+                    round = self.num_round - self.round + 1
+                    self.logger.log_info(f'Round {round}/{num_round} with {len(self.selected_client)} client(s). Final Result: Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1-score: {f1:.4f} with training time: {self.training_time}')
                 if not self.round_result:
                     src.Log.print_with_color(f"Training failed!", "yellow")
                     send_mail(email_config, f"Quá trình training bị lỗi tại round {self.num_round - self.round + 1}")
@@ -621,7 +624,9 @@ class Server:
             if save_parameters and validation and self.round_result:
                 state_dict = []
                 state_dict.append(self.avg_state_dict)
-                self.round_result= self.validation.test(self.avg_state_dict, device)
+                self.round_result,accuracy, precision, recall, f1 = self.validation.test(state_dict, device)
+                round = self.num_round - self.round + 1
+                self.logger.log_info(f'Round {round}/{num_round} with {len(self.selected_client)} client(s). Final Result: Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1-score: {f1:.4f} with training time: {self.training_time}')
 
             if not self.round_result:
                 src.Log.print_with_color(f"Training failed!", "yellow")
@@ -803,8 +808,11 @@ class Server:
         E.g. `self.selected_client = [2,3,5]` means client 2, 3 and 5 will train this current round
         """
         local_speeds = self.speeds[:len(self.list_clients)]
+        self.logger.log_info(f"Label count = {self.label_counts}")
+        self.logger.log_info(f"Local speed = {local_speeds}")
         num_datas = [np.sum(self.label_counts[i]) for i in range(len(self.list_clients))]
         total_training_time = np.array(num_datas) / np.array(local_speeds)
+
 
         if data_for_cluster == 'data-distribution':
             if client_selection_config['enable']:
@@ -829,6 +837,7 @@ class Server:
 
             # From client selected, calculate and log training time
             training_time = np.max([total_training_time[i] for i in self.selected_client])
+            print(f"Training time: {training_time}")
             self.logger.log_info(f"Active with {len(self.selected_client)} client: {self.selected_client}")
             self.logger.log_info(f"Total training time round = {training_time}")
         #FLIS
@@ -845,7 +854,7 @@ class Server:
                     print(f"The number of clutser: {self.num_cluster}")
                     self.logger.log_info(f"Num cluster = {self.num_cluster}, labels = {self.labels}")
                     self.selected_client = []
-                    self.selected_client = client_selection_random_rate(total_clients,0.2)
+                    self.selected_client = client_selection_random_rate(total_clients,0.3)
                     print(f"Selected client: {self.selected_client}")
             else:
                 if self.round == self.num_round - 1 :
@@ -860,6 +869,7 @@ class Server:
 
             # From client selected, calculate and log training time
             training_time = np.max([total_training_time[i] for i in self.selected_client])
+            self.training_time = training_time
             self.logger.log_info(f"Active with {len(self.selected_client)} client: {self.selected_client}")
             self.logger.log_info(f"Total training time round = {training_time}")
         #VAE
@@ -890,6 +900,7 @@ class Server:
 
             # From client selected, calculate and log training time
             training_time = np.max([total_training_time[i] for i in self.selected_client])
+            self.training_time = training_time
             self.logger.log_info(f"Active with {len(self.selected_client)} client: {self.selected_client}")
             self.logger.log_info(f"Total training time round = {training_time}")
         

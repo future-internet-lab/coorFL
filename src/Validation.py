@@ -141,8 +141,7 @@ class Validation:
                         preds = logits.argmax(dim=1)
 
                         self.all_preds.extend(preds.cpu().numpy().flatten())
-                        self.all_labels.extend(y_batch.cpu().numpy().flatten())
-        print("Complete")     
+                        self.all_labels.extend(y_batch.cpu().numpy().flatten())   
         accuracy = accuracy_score(self.all_labels, self.all_preds)
         precision = precision_score(self.all_labels, self.all_preds, zero_division=0)
         recall = recall_score(self.all_labels, self.all_preds, zero_division=0)
@@ -150,8 +149,6 @@ class Validation:
 
         # Log the results
         print(f'Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1-score: {f1:.4f}')
-        self.logger.log_info(f'Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1-score: {f1:.4f}')
-
         self.all_preds = []
         self.all_labels = []      
-        return True
+        return True, accuracy, precision, recall, f1
