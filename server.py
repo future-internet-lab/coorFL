@@ -135,6 +135,7 @@ class Server:
         self.dga_label = []
         self.label_to_indices_list = []
         self.all_features = []
+        self.state_dict_round_1 = None
         self.training_time = None
         if not refresh_each_round:
             if data_name == "DOMAIN":
@@ -230,7 +231,7 @@ class Server:
         elif data_name == "CIFAR10":
             transform_test = transforms.Compose([
                 transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
             ])
             trainset_foward = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
         elif data_name == "DOMAIN":
@@ -257,7 +258,7 @@ class Server:
                 subset = Subset(trainset_foward, indices)
                 trainloader = DataLoader(subset, batch_size=sample_foward_propagation, shuffle=False)
 
-                if self.model_foward is None:
+                if self.model_foward is None: 
                         klass = getattr(src.Model, model_name)
                         self.model_foward = klass()
                         self.model_foward.to(device)
@@ -704,6 +705,7 @@ class Server:
                     if load_parameters:
                         if os.path.exists(filepath):
                             state_dict = torch.load(filepath, weights_only=True)
+                    self.state_dict_round_1 = state_dict
                     count_labels = np.zeros(num_labels)
                     for i in range(self.total_clients):
                         client_id = self.list_clients[i]
@@ -733,7 +735,10 @@ class Server:
                         cluster_index1 = None
                         for client in self.all_model_parameters_temp:
                             if client['client_id'] == client_id:
-                                model_state_dict = client['weight']
+                                if self.round == self.num_round -1:
+                                    model_state_dict = self.state_dict_round_1
+                                else:
+                                    model_state_dict = client['weight']
                                 cluster_index1 = client['cluster_index']
                                 break 
                         # Request clients to start training
@@ -850,11 +855,12 @@ class Server:
                             client_data['cluster_index'] = self.labels[i]
                         for i, client_data in enumerate(self.all_model_parameters_temp):
                             client_data['cluster_index'] = self.neural_last_layer[i]['cluster_index']
+                        
                     print(f"Labels: {self.labels}")
                     print(f"The number of clutser: {self.num_cluster}")
                     self.logger.log_info(f"Num cluster = {self.num_cluster}, labels = {self.labels}")
                     self.selected_client = []
-                    self.selected_client = client_selection_random_rate(total_clients,0.3)
+                    self.selected_client = client_selection_random_rate(total_clients,0.4)
                     print(f"Selected client: {self.selected_client}")
             else:
                 if self.round == self.num_round - 1 :

@@ -47,6 +47,7 @@ def client_selection_random(client_list, num_client=1):
     num_client = min(num_client, len(client_list))
     return random.sample(client_list, num_client)
 def client_selection_random_rate(total_client, rate=0.2):
-    random.seed()  
-    selected_client = [random.randrange(0, total_client) for _ in range(max(1,int(total_client * rate)))]
+    random.seed()
+    num_clients = max(1, int(total_client * rate))
+    selected_client = random.sample(range(total_client), num_clients)
     return selected_client
