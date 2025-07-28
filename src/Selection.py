@@ -2,6 +2,7 @@ import numpy as np
 import random
 
 
+
 def client_selection_speed_base(indices, all_speeds, all_num_datas):
     speeds = np.array(all_speeds)[indices]
     num_datas = np.array(all_num_datas)[indices]
@@ -27,20 +28,21 @@ def client_selection_speed_base(indices, all_speeds, all_num_datas):
     listY = []
     vPerC = 0
     t = 0
+    delta_t = 0.01
     while True:
         active_client = num_active_client(speeds, num_datas, t)
         if active_client != 0:
             a = sum_velocity(speeds, num_datas, t) / active_client
             # print(f"t={t} - n_client={active_client} - {vPerC / (t + 1)}")
-            listY.append(vPerC / (t + 1))
+            listY.append((vPerC * delta_t) / (t + delta_t))
             vPerC += a
         else:
             break
-        t += 1
+        t += delta_t
 
     training_times = np.array(num_datas) / np.array(speeds)
 
-    return [indices[i] for i, value in enumerate(training_times) if value < np.argmax(listY) + 1]
+    return [indices[i] for i, value in enumerate(training_times) if value < (np.argmax(listY) + 1) * delta_t]
 
 
 def client_selection_random(client_list, num_client=1):

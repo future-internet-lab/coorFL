@@ -22,10 +22,22 @@ class Validation:
         self.data_name = data_name
         self.logger = logger
 
-        klass = getattr(src.Model, self.model_name)
-        if klass is None:
-            raise ValueError(f"Class '{model_name}' does not exist.")
-        self.model = klass()
+        if data_name == "DOMAIN2":
+            if model_name == "Transformer":
+                self.model = src.Model.PositionalEncodingTransformer()
+            elif model_name == "CNN":
+                self.model = src.Model.CNNClassifier()
+            else:
+                raise ValueError(f"Model name '{model_name}' is not valid.")
+        elif data_name == "CIFAR10":
+            if model_name == "ResNet":
+                self.model = src.Model.ResNet18()
+            elif model_name == "MobileNet":
+                self.model =src.Model. MobileNetV2()
+            else:
+                raise ValueError(f"Model name '{model_name}' is not valid.")
+        else:
+            raise ValueError(f"Data name '{data_name}' is not valid.")
 
         self.test_loader = None
 
@@ -49,7 +61,10 @@ class Validation:
             benign_test_ds = src.Utils.load_dataset("domain2/benign_test.pkl")
             dga_1_test_ds = src.Utils.load_dataset("domain2/dga_1_test.pkl")
             dga_2_test_ds = src.Utils.load_dataset("domain2/dga_2_test.pkl")
-            test_set = ConcatDataset([benign_test_ds, dga_1_test_ds, dga_2_test_ds])
+            dga_3_test_ds = src.Utils.load_dataset("domain2/dga_3_test.pkl")
+            dga_4_test_ds = src.Utils.load_dataset("domain2/dga_4_test.pkl")
+
+            test_set = ConcatDataset([benign_test_ds, dga_1_test_ds, dga_2_test_ds, dga_3_test_ds, dga_4_test_ds])
         else:
             raise ValueError(f"Do not have data name '{self.data_name}.")
 
@@ -72,33 +87,35 @@ class Validation:
             raise ValueError(f"Not found test function for data name {self.data_name}")
 
     def test_image(self, device):
-        test_loss = 0
-        correct = 0
-        for data, target in tqdm(self.test_loader):
-            data = data.to(device)
-            target = target.to(device)
-            output = self.model(data)
-            test_loss += F.nll_loss(output, target, reduction='sum').item()
-            pred = output.data.max(1, keepdim=True)[1]  # get the index of the max log-probability
-            correct += pred.eq(target.data.view_as(pred)).long().cpu().sum()
+        criterion = nn.CrossEntropyLoss()
+        total_loss = 0.0
+        total_correct = 0
+        total_samples = 0
 
-        test_loss /= len(self.test_loader.dataset)
-        accuracy = 100.0 * correct / len(self.test_loader.dataset)
-        print('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)\n'.format(
-            test_loss, correct, len(self.test_loader.dataset), accuracy))
-        self.logger.log_info('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)\n'.format(
-            test_loss, correct, len(self.test_loader.dataset), accuracy))
+        with torch.no_grad():
+            for x_batch, y_batch in self.test_loader:
+                x_batch = x_batch.to(device)
+                y_batch = y_batch.to(device)
 
-        if np.isnan(test_loss) or math.isnan(test_loss) or abs(test_loss) > 10e5:
-            return False, 0.0
+                logits = self.model(x_batch)
+                loss = criterion(logits, y_batch)
+                preds = logits.argmax(dim=1)
 
-        return True, accuracy
+                total_loss += loss.item() * x_batch.size(0)
+                total_correct += (preds == y_batch).sum().item()
+                total_samples += x_batch.size(0)
+
+        avg_loss = total_loss / total_samples if total_samples > 0 else float("inf")
+        accuracy = total_correct / total_samples if total_samples > 0 else 0.0
+        
+
+        return True,avg_loss, accuracy
 
     def test_domain(self, device):
         all_preds = []
         all_labels = []
 
-        criterion = nn.BCELoss()
+        criterion = nn.CrossEntropyLoss()
 
         with torch.no_grad():
             for inputs, labels in tqdm(self.test_loader):
@@ -120,26 +137,38 @@ class Validation:
         recall = recall_score(all_labels, all_preds)
         f1 = f1_score(all_labels, all_preds)
 
-        print(f'Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1-score: {f1:.4f}')
-        self.logger.log_info(f'Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1-score: {f1:.4f}')
-
-        return True, accuracy*100
+       
+        return True, accuracy,precision,recall,f1
     
     def test_domain_2(self, device):
         self.model.eval()
-        test_correct = 0
-        test_samples = 0
-
+        all_preds = []
+        all_labels = [] 
+        criterion = nn.CrossEntropyLoss()
+        total_samples = 0
+        total_loss = 0.0
         with torch.no_grad():
-            for x_batch, y_batch in tqdm(self.test_loader):
+            for x_batch, y_batch in self.test_loader:
                 x_batch = x_batch.to(device)
                 y_batch = y_batch.to(device)
+
                 logits = self.model(x_batch)
+                loss = criterion(logits, y_batch)
                 preds = logits.argmax(dim=1)
-                test_correct += (preds == y_batch).sum().item()
-                test_samples += y_batch.size(0)
 
-        test_acc = test_correct / test_samples
+                total_loss += loss.item() * x_batch.size(0)
+                total_samples += x_batch.size(0)
 
-        print(f"Test Acc={test_acc:.4f}")
-        return True, test_acc*100
+                all_preds.extend(preds.cpu().numpy().flatten())
+                all_labels.extend(y_batch.cpu().numpy().flatten())   
+
+        accuracy = accuracy_score(all_labels, all_preds)
+        precision = precision_score(all_labels, all_preds, zero_division=0)
+        recall = recall_score(all_labels, all_preds, zero_division=0)
+        f1 = f1_score(all_labels, all_preds, zero_division=0)
+        avg_loss = total_loss / total_samples if total_samples > 0 else float('inf')
+
+        # Log the results
+       
+        return True,avg_loss, accuracy,precision,recall,f1
+

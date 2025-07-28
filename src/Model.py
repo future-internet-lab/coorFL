@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from Utils import vocab_size
+from src.Utils import vocab_size
 
 
 # ------------------- CNN MODEL FOR CLASSIFICATION ----------------------
