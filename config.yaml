@@ -53,9 +53,9 @@ server:
 
 
 rabbit:
-  address: 192.168.101.91
-  username: dai
-  password: dai
+  address: 192.0.0.0
+  username: 1
+  password: 1
 
 log_path: .
 
