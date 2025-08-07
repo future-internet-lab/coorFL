@@ -571,12 +571,13 @@ class Server:
                 self.list_clients.append(str(client_id))
                 src.Log.print_with_color(f"[<<<] Received message from client: {message}", "blue")
             
-            if len(self.list_clients) == self.total_clients:
+            if len(self.stats) == self.total_clients:
                 self.states_tensor = torch.stack(self.stats)
-                logits = self.voi_estimator.get_action(self.states_tensor)
+
+                logit = self.voi_estimator.get_action(self.states_tensor)
                 k = max(1, int(ratio_feel * total_clients))
-                self.selected_client = torch.topk(logits, k=k).indices.tolist()
-                x = len(self.selected_client)
+                self.selected_client = torch.topk(logit, k=k).indices.tolist()
+                
                 self.rewards = [0 for i in range(len(self.selected_client))]
                 self.actions = [0 for i in range(len(self.selected_client))]
                 self.values = [0 for i in range(len(self.selected_client))]
@@ -584,7 +585,7 @@ class Server:
                 voi_state_dict = self.voi_estimator.state_dict()
                 for i in self.selected_client:
                     client_id = self.list_clients[i]
-                    logits = logits[i]
+                    logits = logit[i]
                     states_tensor = self.states_tensor[i]
                     stats = self.stats[i]
                     selected_index = self.selected_client.index(i)
@@ -1448,92 +1449,88 @@ class Server:
                 return
 
             # Danh sách các parameters tương ứng client đã chọn (đã thu thập đúng thứ tự)
-            selected_params = [self.all_model_parameters[i] for i in range(len(self.selected_client))]
+            selected_params = [copy.deepcopy(self.all_model_parameters[i]) for i in range(len(self.selected_client))]
 
             # Lấy bản sao weights từ client đầu tiên trong danh sách selected_params
             avg_state_dict = copy.deepcopy(selected_params[0]["weight"])
-            total_size = sum(p["size"] for p in selected_params)
-
+            total_size = sum(p["num_data"] for p in selected_params)
+            print(f"Total  size = {total_size}")
             for key in avg_state_dict.keys():
                 if avg_state_dict[key].dtype != torch.long:
-                    avg_state_dict[key] = sum(
-                        p["weight"][key] * p["size"] for p in selected_params
-                    ) / total_size
+                    avg_state_dict[key] = sum(p["weight"][key] * p["num_data"] for p in selected_params) / total_size
                 else:
-                    avg_state_dict[key] = sum(
-                        p["weight"][key] * p["size"] for p in selected_params
-                    ) // total_size
+                    avg_state_dict[key] = sum(p["weight"][key] * p["num_data"] for p in selected_params) // total_size
 
-            self.avg_state_dict = avg_state_dict
+            self.avg_state_dict = copy.deepcopy(avg_state_dict)
         elif algorithm_name == "csfedavg":
             print(f"Avg: {len(self.selected_client)} client")
             if not self.selected_client:
                 return
             print(f"length: len all_model_parameters: {len(self.all_model_parameters)}")
             # Danh sách các parameters tương ứng client đã chọn (đã thu thập đúng thứ tự)
-            selected_params = [self.all_model_parameters[i] for i in range(len(self.all_model_parameters))]
+            selected_params = [copy.deepcopy(self.all_model_parameters[i]) for i in range(len(self.selected_client))]
             print(f"length: len selected_params: {len(selected_params)}")
             # Lấy bản sao weights từ client đầu tiên trong danh sách selected_params
             avg_state_dict = copy.deepcopy(selected_params[0]["weight"])
-            total_size = sum(p["size"] for p in selected_params)
-
+            total_size = sum(p["num_data"] for p in selected_params)
+            print(f"Total  size = {total_size}")
             for key in avg_state_dict.keys():
                 if avg_state_dict[key].dtype != torch.long:
                     avg_state_dict[key] = sum(
-                        p["weight"][key] * p["size"] for p in selected_params
+                        p["weight"][key] * p["num_data"] for p in selected_params
                     ) / total_size
                 else:
                     avg_state_dict[key] = sum(
-                        p["weight"][key] * p["size"] for p in selected_params
+                        p["weight"][key] * p["num_data"] for p in selected_params
                     ) // total_size
 
-            self.avg_state_dict = avg_state_dict
+            self.avg_state_dict = copy.deepcopy(avg_state_dict)
         elif algorithm_name =="fedcls":
             print(f"Avg: {len(self.selected_client)} client")
 
             if not self.selected_client:
                 return
             # Danh sách các parameters tương ứng client đã chọn (đã thu thập đúng thứ tự)
-            selected_params = [self.all_model_parameters[i] for i in range(len(self.selected_client))]
+            selected_params = [copy.deepcopy(self.all_model_parameters[i]) for i in range(len(self.selected_client))]
 
             # Lấy bản sao weights từ client đầu tiên trong danh sách selected_params
             avg_state_dict = copy.deepcopy(selected_params[0]["weight"])
-            total_size = sum(p["size"] for p in selected_params)
-
+            total_size = sum(p["num_data"] for p in selected_params)
+            print(f"Total  size = {total_size}")
             for key in avg_state_dict.keys():
                 if avg_state_dict[key].dtype != torch.long:
                     avg_state_dict[key] = sum(
-                        p["weight"][key] * p["size"] for p in selected_params
+                        p["weight"][key] * p["num_data"] for p in selected_params
                     ) / total_size
                 else:
                     avg_state_dict[key] = sum(
-                        p["weight"][key] * p["size"] for p in selected_params
+                        p["weight"][key] * p["num_data"] for p in selected_params
                     ) // total_size
 
-            self.avg_state_dict = avg_state_dict
+            self.avg_state_dict = copy.deepcopy(avg_state_dict)
         elif algorithm_name == "fedrhlp":
-            selected_params = [self.all_model_parameters[i] for i in range(len(self.selected_client))]
+            selected_params = [copy.deepcopy(self.all_model_parameters[i]) for i in range(len(self.selected_client))]
             print(f"[FedRHLP] Selected {len(selected_params)} params for averaging.")
 
             # Deep copy state_dict từ client đầu tiên làm mẫu
             avg_state_dict = copy.deepcopy(selected_params[0]["weight"])
-            total_size = sum(p["size"] for p in selected_params)
-
+            total_size = sum(p["num_data"] for p in selected_params)
+            print(f"Total  size = {total_size}")
             for key in avg_state_dict.keys():
                 try:
                     if avg_state_dict[key].dtype != torch.long:
                         avg_state_dict[key] = sum(
-                            p["weight"][key] * p["size"] for p in selected_params
+                            p["weight"][key] * p["num_data"] for p in selected_params
                         ) / total_size
                     else:
                         avg_state_dict[key] = sum(
-                            p["weight"][key] * p["size"] for p in selected_params
+                            p["weight"][key] * p["num_data"] for p in selected_params
                         ) // total_size
                 except Exception as e:
                     print(f"[FedRHLP] Error processing key {key}: {e}")
                     raise
 
-            self.avg_state_dict = avg_state_dict
+            self.avg_state_dict = copy.deepcopy(avg_state_dict)
             print("[FedRHLP] Averaging complete.")
         elif algorithm_name == "hicsfl": 
             print(f"Avg: {len(self.selected_client)} client")
@@ -1541,92 +1538,69 @@ class Server:
             if not self.selected_client:
                 return
             # Danh sách các parameters tương ứng client đã chọn (đã thu thập đúng thứ tự)
-            selected_params = [self.all_model_parameters[i] for i in range(len(self.selected_client))]
-
+            selected_params = [copy.deepcopy(self.all_model_parameters[i]) for i in range(len(self.selected_client))]
             # Lấy bản sao weights từ client đầu tiên trong danh sách selected_params
             avg_state_dict = copy.deepcopy(selected_params[0]["weight"])
-            total_size = sum(p["size"] for p in selected_params)
-
+            total_size = sum(p["num_data"] for p in selected_params)
+            print(f"Total  size = {total_size}")
             for key in avg_state_dict.keys():
                 if avg_state_dict[key].dtype != torch.long:
                     avg_state_dict[key] = sum(
-                        p["weight"][key] * p["size"] for p in selected_params
+                        p["weight"][key] * p["num_data"] for p in selected_params
                     ) / total_size
                 else:
                     avg_state_dict[key] = sum(
-                        p["weight"][key] * p["size"] for p in selected_params
+                        p["weight"][key] * p["num_data"] for p in selected_params
                     ) // total_size
 
-            self.avg_state_dict = avg_state_dict
+            self.avg_state_dict = copy.deepcopy(avg_state_dict)
         elif algorithm_name == "haccs":
             print(f"Avg: {len(self.selected_client)} client")
 
             if not self.selected_client:
                 return
             # Danh sách các parameters tương ứng client đã chọn (đã thu thập đúng thứ tự)
-            selected_params = [self.all_model_parameters[i] for i in range(len(self.selected_client))]
+            selected_params = [copy.deepcopy(self.all_model_parameters[i]) for i in range(len(self.selected_client))]
 
             # Lấy bản sao weights từ client đầu tiên trong danh sách selected_params
             avg_state_dict = copy.deepcopy(selected_params[0]["weight"])
-            total_size = sum(p["size"] for p in selected_params)
-
+            total_size = sum(p["num_data"] for p in selected_params)
+            print(f"Total  size = {total_size}")
             for key in avg_state_dict.keys():
                 if avg_state_dict[key].dtype != torch.long:
                     avg_state_dict[key] = sum(
-                        p["weight"][key] * p["size"] for p in selected_params
+                        p["weight"][key] * p["num_data"] for p in selected_params
                     ) / total_size
                 else:
                     avg_state_dict[key] = sum(
-                        p["weight"][key] * p["size"] for p in selected_params
+                        p["weight"][key] * p["num_data"] for p in selected_params
                     ) // total_size
 
-            self.avg_state_dict = avg_state_dict
+            self.avg_state_dict = copy.deepcopy(avg_state_dict)
         elif algorithm_name == "feel":
             print(f"Avg: {len(self.selected_client)} client")
 
             if not self.selected_client:
                 return
             # Danh sách các parameters tương ứng client đã chọn (đã thu thập đúng thứ tự)
-            selected_params = [self.all_model_parameters[i] for i in range(len(self.selected_client))]
+            selected_params = [copy.deepcopy(self.all_model_parameters[i]) for i in range(len(self.selected_client))]
 
             # Lấy bản sao weights từ client đầu tiên trong danh sách selected_params
             avg_state_dict = copy.deepcopy(selected_params[0]["weight"])
-            total_size = sum(p["size"] for p in selected_params)
-
+            total_size = sum(p["num_data"] for p in selected_params)
+            print(f"Total  size = {total_size}")
             for key in avg_state_dict.keys():
                 if avg_state_dict[key].dtype != torch.long:
                     avg_state_dict[key] = sum(
-                        p["weight"][key] * p["size"] for p in selected_params
+                        p["weight"][key] * p["num_data"] for p in selected_params
                     ) / total_size
                 else:
                     avg_state_dict[key] = sum(
-                        p["weight"][key] * p["size"] for p in selected_params
+                        p["weight"][key] * p["num_data"] for p in selected_params
                     ) // total_size
 
-            self.avg_state_dict = avg_state_dict
-
-    def avg_all_parameters(self):
-        """
-        Consuming all client's weight from `self.all_model_parameters` - a list contain all client's weight
-        :return: Global weight on `self.avg_state_dict`
-        """
-        # Average all client parameters
-        num_models = len(self.all_model_parameters)
-
-        if num_models == 0:
-            return
-
-        self.avg_state_dict = self.all_model_parameters[0]['weight']
-        all_client_sizes = [item['size'] for item in self.all_model_parameters]
-
-        for key in self.avg_state_dict.keys():
-            if self.avg_state_dict[key].dtype != torch.long:
-                self.avg_state_dict[key] = sum(self.all_model_parameters[i]['weight'][key] * all_client_sizes[i]
-                                               for i in range(num_models)) / sum(all_client_sizes)
-            else:
-                self.avg_state_dict[key] = sum(self.all_model_parameters[i]['weight'][key] * all_client_sizes[i]
-                                               for i in range(num_models)) // sum(all_client_sizes)
-
+            self.avg_state_dict = copy.deepcopy(avg_state_dict)
+            
 
 def signal_handler(sig, frame):
     print("\nCatch stop signal Ctrl+C. Stop the program.")

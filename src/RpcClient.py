@@ -16,7 +16,7 @@ from torch.utils.data import Dataset, DataLoader, ConcatDataset, Subset
 import src.Log
 import src.Model
 import src.Utils
-
+import copy
 
 class RpcClient:
     def __init__(self, client_id, address, username, password, train_func, device, zone):
@@ -236,7 +236,7 @@ class RpcClient:
                 self.training_time = self.epoch * self.client_sizes / self.speed
                 self.train_loader = None
         
-                model_state_dict = self.model.state_dict()
+                model_state_dict = copy.deepcopy(self.model.state_dict())
                 if self.device != "cpu":
                     for key in model_state_dict:
                         model_state_dict[key] = model_state_dict[key].to('cpu')
@@ -269,7 +269,7 @@ class RpcClient:
                 result,bias,_ = self.train_func(self.model, self.lr,self.data_name, self.momentum, self.train_loader, criterion, self.clip_grad_norm,self.epoch, return_bias = True)
                 self.train_loader = None
         
-                model_state_dict = self.model.state_dict()
+                model_state_dict = copy.deepcopy(self.model.state_dict())
                 if self.device != "cpu":
                     for key in model_state_dict:
                         model_state_dict[key] = model_state_dict[key].to('cpu')
@@ -325,7 +325,7 @@ class RpcClient:
             result = self.train_func(self.model, self.lr,self.data_name, self.momentum, self.train_loader, criterion, self.clip_grad_norm,1)
             self.train_loader = None
     
-            model_state_dict = self.model.state_dict()
+            model_state_dict = copy.deepcopy(self.model.state_dict())
             if self.device != "cpu":
                 for key in model_state_dict:
                     model_state_dict[key] = model_state_dict[key].to('cpu')
@@ -361,7 +361,7 @@ class RpcClient:
             value = self.voi_estimator.get_value(state_tensor)
             log_prob = -((actions - actions.detach()) ** 2)
             
-            model_state_dict = self.model.state_dict()
+            model_state_dict = copy.deepcopy(self.model.state_dict())
             if self.device != "cpu":
                 for key in model_state_dict:
                     model_state_dict[key] = model_state_dict[key].to('cpu')
