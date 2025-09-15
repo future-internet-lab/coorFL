@@ -8,21 +8,20 @@ server:
     load: True
     save: True
   validation: True
-  data-mode: even
+  data-mode: uneven
   algorithm: feel
   data-distribution:
     num-data-range:
-      - 500
-      - 750
+      - 50
+      - 75
     non-iid-rate: 0.5
     refresh-each-round: True
   random-seed: 1
   client-selection:
     enable: True
-    mode: random
-  optimizer: adam   
+    mode: random 
   client-cluster:
-    cluster_iter: 5 
+    cluster_iter: 10 
     enable: True
     cluster: AffinityPropagation
     KMeans:
@@ -60,7 +59,7 @@ rabbit:
 log_path: .
 
 learning:
-  learning-rate: 0.05
+  learning-rate: 0.0001
   momentum: 0.5
   batch-size: 128
   clip-grad-norm: 0

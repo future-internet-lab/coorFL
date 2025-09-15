@@ -7,7 +7,7 @@ import random
 import numpy as np
 import torch
 import torch.optim as optim
-
+import torch.nn as nn
 import src.Log
 from src.RpcClient import RpcClient
 from src.Utils import DomainDataset
@@ -125,6 +125,26 @@ def train_cifar10(model, client_loader, criterion, optimizer, return_bias=False,
 
     # Nếu ai cố gọi return_bias=True thì ta trả lời thẳng thắn:
     raise NotImplementedError("Bias estimation is not implemented in global CIFAR-10 training.")
+def train_CICIDS2017(model, client_loader, criterion, optimizer, return_bias=False, num_classes = 10, num_epochs = 1, clip_grad_norm=None):
+    criterion = nn.BCEWithLogitsLoss()
+    for epoch in range(num_epochs):
+        print(epoch)
+        model.train()
+        total_loss = 0.0
+        total_samples  = 0
+        loop = tqdm(client_loader, desc=f"[Epoch {epoch+1}/{num_epochs}] Training")
+        for x_batch, y_batch in loop:
+            x_batch, y_batch = x_batch.to(device), y_batch.float().to(device)
+            optimizer.zero_grad()
+            logits = model(x_batch)
+            loss = criterion(logits, y_batch)
+            loss.backward()
+            optimizer.step()
+            total_loss += loss.item() * x_batch.size(0)
+            total_samples += x_batch.size(0)
+        avg_loss = total_loss / total_samples if total_samples > 0 else float("inf")
+    return True,None, avg_loss
+
 def train_on_device(model, lr, data_name, momentum, trainloader, criterion, clip_grad_norm=None, epoch=1, return_bias = False,num_classes = None):
     #optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
     optimizer = optim.Adam(model.parameters(), lr=lr)
@@ -132,7 +152,8 @@ def train_on_device(model, lr, data_name, momentum, trainloader, criterion, clip
         return train_domain(model, trainloader, criterion, optimizer, return_bias, num_classes, epoch, clip_grad_norm)
     elif data_name == "CIFAR10":
         return train_cifar10(model, trainloader, criterion, optimizer, return_bias, num_classes, epoch, clip_grad_norm)
-    
+    elif data_name == "CICIDS":
+        return train_CICIDS2017(model, trainloader, criterion, optimizer, return_bias, num_classes, epoch, clip_grad_norm)
 
 if __name__ == "__main__":
     src.Log.print_with_color("[>>>] Client sending registration message to server...", "red")

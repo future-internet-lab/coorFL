@@ -72,6 +72,8 @@ class RpcClient:
                 num_labels = 21
             elif self.data_name == "DOMAIN2":
                 num_labels = 2
+            elif self.data_name == "CICIDS":
+                num_labels = 2
             else:
                 num_labels = 0
             batch_size = self.response["batch_size"]
@@ -113,7 +115,8 @@ class RpcClient:
                         self.model = src.Model.PositionalEncodingTransformer()
                     else:
                         raise ValueError(f"[ERROR] Unknown model '{model_name}' for data 'DOMAIN2'")
-
+                elif self.data_name == "CICIDS":
+                        self.model = src.Model.FTTransformer(d_token = 192, n_blocks = 8, n_heads = 6, d_ff = 768)
                 else:
                     raise ValueError(f"[ERROR] Unknown data_name: '{self.data_name}'")
 
@@ -195,6 +198,23 @@ class RpcClient:
                     else:
                         print("EVEN MODE")
                         self.all_train_set = [ConcatDataset([benign_train_ds, dga_1_train_ds, dga_2_train_ds, dga_3_train_ds, dga_4_train_ds])]
+                elif self.data_name == "CICIDS":
+                    
+                    benign_train_ds = src.Model.CICIDSDataset("CIC-IDS2017/benign_train.pkl")  
+                    atk_0_train_ds = src.Model.CICIDSDataset("CIC-IDS2017/attack_train_0.pkl")
+                    atk_1_train_ds = src.Model.CICIDSDataset("CIC-IDS2017/attack_train_1.pkl")
+                    atk_2_train_ds = src.Model.CICIDSDataset("CIC-IDS2017/attack_train_2.pkl")
+                    atk_3_train_ds = src.Model.CICIDSDataset("CIC-IDS2017/attack_train_3.pkl")
+                    
+                    if data_mode == "uneven":
+                        print("UNEVEN MODE")
+                        self.all_train_set = [ConcatDataset([benign_train_ds, atk_0_train_ds]),
+                                            ConcatDataset([benign_train_ds, atk_1_train_ds]),
+                                            ConcatDataset([benign_train_ds, atk_2_train_ds]),
+                                            ConcatDataset([benign_train_ds, atk_3_train_ds])]
+                    else:
+                        print("EVEN MODE")
+                        self.all_train_set = [ConcatDataset([benign_train_ds, atk_0_train_ds, atk_1_train_ds, atk_2_train_ds, atk_3_train_ds])]
                 else:
                     raise ValueError(f"Data name '{self.data_name}' is not valid.")
                 if self.algorithm == "fedcls": 
@@ -206,6 +226,7 @@ class RpcClient:
                     for idx, (_, label) in enumerate(train_ds):
                         self.class_indices[label].append(idx)
                     self.all_class_indices.append(self.class_indices)
+                
                    
             self.train_set = self.all_train_set[self.data_zone]
             self.class_indices = self.all_class_indices[self.data_zone]
@@ -219,7 +240,7 @@ class RpcClient:
                     selected_indices.extend(random.sample(available_indices, actual_sample_size))
             
             src.Log.print_with_color(f"Chuan bi ghep subset", "yellow")
-            if self.data_name == "DOMAIN" or self.data_name == "DOMAIN2":
+            if self.data_name == "DOMAIN" or self.data_name == "DOMAIN2" or self.data_name == "CICIDS":
                 self.subset = src.Utils.CustomDataset(self.train_set, selected_indices)
             else:
                 self.subset = Subset(self.train_set, selected_indices)
@@ -307,6 +328,8 @@ class RpcClient:
                 num_labels = 21
             elif self.data_name == "DOMAIN2":
                 num_labels = 2
+            elif self.data_name == "CICIDS":
+                num_labels = 2
             else:
                 num_labels = 0
             self.data_range[0] = self.response["range[0]"]
@@ -322,7 +345,7 @@ class RpcClient:
         
             src.Log.print_with_color(f"Strat trainning: {self.data_name}", "yellow")
             self.training_time = self.epoch * self.client_sizes/ self.speed
-            result = self.train_func(self.model, self.lr,self.data_name, self.momentum, self.train_loader, criterion, self.clip_grad_norm,1)
+            result = self.train_func(self.model, self.lr,self.data_name, self.momentum, self.train_loader, criterion, self.clip_grad_norm,self.epoch)
             self.train_loader = None
     
             model_state_dict = copy.deepcopy(self.model.state_dict())
@@ -352,7 +375,7 @@ class RpcClient:
             
             src.Log.print_with_color(f"Strat trainning: {self.data_name}", "yellow")
             self.training_time = self.epoch * self.client_sizes/ self.speed
-            result,_,loss = self.train_func(self.model, self.lr,self.data_name, self.momentum, self.train_loader, criterion, self.clip_grad_norm,1)
+            result,_,loss = self.train_func(self.model, self.lr,self.data_name, self.momentum, self.train_loader, criterion, self.clip_grad_norm,self.epoch)
             self.train_loader = None
             stats[0] = loss
 

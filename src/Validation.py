@@ -36,6 +36,9 @@ class Validation:
                 self.model =src.Model. MobileNetV2()
             else:
                 raise ValueError(f"Model name '{model_name}' is not valid.")
+        elif self.data_name == "CICIDS":
+                self.model = src.Model.FTTransformer(d_token = 192, n_blocks = 8, n_heads = 6, d_ff = 768)
+            
         else:
             raise ValueError(f"Data name '{data_name}' is not valid.")
 
@@ -65,6 +68,14 @@ class Validation:
             dga_4_test_ds = src.Utils.load_dataset("domain2/dga_4_test.pkl")
 
             test_set = ConcatDataset([benign_test_ds, dga_1_test_ds, dga_2_test_ds, dga_3_test_ds, dga_4_test_ds])
+        elif self.data_name == "CICIDS":
+            benign_test_ds = src.Model.CICIDSDataset("CIC-IDS2017/benign_test.pkl")  
+            atk_0_test_ds = src.Model.CICIDSDataset("CIC-IDS2017/attack_test_0.pkl")
+            atk_1_test_ds = src.Model.CICIDSDataset("CIC-IDS2017/attack_test_1.pkl")
+            atk_2_test_ds = src.Model.CICIDSDataset("CIC-IDS2017/attack_test_2.pkl")
+            atk_3_test_ds = src.Model.CICIDSDataset("CIC-IDS2017/attack_test_3.pkl")
+
+            test_set = ConcatDataset([benign_test_ds, atk_0_test_ds, atk_1_test_ds, atk_2_test_ds, atk_3_test_ds])
         else:
             raise ValueError(f"Do not have data name '{self.data_name}.")
 
@@ -80,9 +91,12 @@ class Validation:
             return self.test_image(device)
         elif self.data_name == "DOMAIN":
             return self.test_domain(device)
+        elif self.data_name == "CICIDS":
+            return self.test_cicids2017(device)
         elif self.data_name == "DOMAIN2":
             return self.test_domain_2(device)
             pass
+        
         else:
             raise ValueError(f"Not found test function for data name {self.data_name}")
 
@@ -139,6 +153,33 @@ class Validation:
 
        
         return True, accuracy,precision,recall,f1
+    def test_cicids2017(self,device):
+        self.model.eval()
+        all_preds, all_labels = [], []
+        criterion = nn.BCEWithLogitsLoss()
+        total_samples = 0
+        total_loss = 0.0
+        with torch.no_grad():
+            for x_batch, y_batch in self.test_loader:
+                x_batch = x_batch.to(device)
+                y_batch = y_batch.to(device).float()
+
+                logits = self.model(x_batch)
+                loss = criterion(logits, y_batch)
+                preds = torch.sigmoid(logits).cpu() > 0.5
+
+                total_loss += loss.item() * x_batch.size(0)
+                total_samples += x_batch.size(0)
+
+                all_preds.extend(preds.int().tolist())
+                all_labels.extend(y_batch.tolist())
+
+        acc = accuracy_score(all_labels, all_preds)
+        prec = precision_score(all_labels, all_preds, zero_division=0)
+        rec = recall_score(all_labels, all_preds, zero_division=0)
+        f1 = f1_score(all_labels, all_preds, zero_division=0)
+        avg_loss = total_loss / total_samples if total_samples > 0 else float('inf')
+        return True,avg_loss, acc,prec,rec,f1
     
     def test_domain_2(self, device):
         self.model.eval()

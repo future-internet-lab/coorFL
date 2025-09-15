@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from torch.utils.data import Dataset, ConcatDataset, DataLoader
 from src.Utils import vocab_size
-
+import pickle
 
 # ------------------- CNN MODEL FOR CLASSIFICATION ----------------------
 
@@ -726,3 +726,134 @@ def LSTM():
     :return:
     """
     return DGAClassifier(128, 32, 64, 1)
+
+###############################CICDSDataset###############################################
+class CICIDSDataset(Dataset):
+    def __init__(self, path_to_pkl):
+        with open(path_to_pkl, "rb") as f:
+            X, y = pickle.load(f)
+        self.X = torch.tensor(X, dtype=torch.float32)
+        self.y = torch.tensor(y, dtype=torch.long)
+
+    def __len__(self):
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        x = self.X[idx]
+        y = self.y[idx]
+        # Chuyển nhãn thành int Python
+        return x, int(y.item())
+
+# class CICIDSDNN(nn.Module):
+#     def __init__(self, input_dim=16):
+#         super(CICIDSDNN, self).__init__()
+#         self.net = nn.Sequential(
+#             nn.Linear(input_dim, 64),
+#             nn.BatchNorm1d(64),
+#             nn.ReLU(),
+#             nn.Dropout(0.3),
+
+#             nn.Linear(64, 32),
+#             nn.BatchNorm1d(32),
+#             nn.ReLU(),
+#             nn.Dropout(0.3),
+
+#             nn.Linear(32, 16),
+#             nn.ReLU(),
+
+#             nn.Linear(16, 1)  # Output logits
+#         )
+
+#     def forward(self, x):
+#         return self.net(x).squeeze(1)  # Output shape: [B]
+
+
+class SE(nn.Module):
+    def __init__(self, d, r=4):
+        super().__init__()
+        self.fc = nn.Sequential(nn.Linear(d, d//r), nn.ReLU(), nn.Linear(d//r, d), nn.Sigmoid())
+    def forward(self, x):
+        w = self.fc(x.mean(0, keepdim=True))
+        return x * w
+
+class ResBlock(nn.Module):
+    def __init__(self, d_in, d_hidden):
+        super().__init__()
+        self.fc1 = nn.Linear(d_in, d_hidden)
+        self.bn1 = nn.BatchNorm1d(d_hidden)
+        self.fc2 = nn.Linear(d_hidden, d_in)
+        self.bn2 = nn.BatchNorm1d(d_in)
+        self.se  = SE(d_in)
+    def forward(self, x):
+        h = F.relu(self.bn1(self.fc1(x)))
+        h = self.bn2(self.fc2(h))
+        return F.relu(self.se(x + h))        # skip-connection + SE
+
+class ResMLP(nn.Module):
+    def __init__(self, input_dim=16, depth=4, width=64):
+        super().__init__()
+        self.stem = nn.Linear(input_dim, width)
+        self.blocks = nn.Sequential(*[ResBlock(width, width*2) for _ in range(depth)])
+        self.head = nn.Linear(width, 1)
+    def forward(self, x):
+        x = F.relu(self.stem(x))
+        x = self.blocks(x)
+        return self.head(x).squeeze(1)
+
+### Code
+
+class ContinuousFeatureTokenizer(nn.Module):
+    def __init__(self, num_features: int, d_token: int):
+        super().__init__()
+        self.weight = nn.Parameter(torch.empty(num_features, d_token))
+        self.bias   = nn.Parameter(torch.empty(num_features, d_token))
+        nn.init.xavier_uniform_(self.weight)
+        nn.init.zeros_(self.bias)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x shape: [B, num_features]
+        # -> tokens shape: [B, num_features, d_token]
+        return x.unsqueeze(-1) * self.weight + self.bias
+
+
+class FTTransformer(nn.Module):
+    def __init__(
+        self,
+        num_features: int = 16,
+        d_token: int      = 64,
+        n_blocks: int     = 4,
+        n_heads: int      = 8,
+        d_ff: int         = 128,
+        dropout: float    = 0.1,
+    ):
+        super().__init__()
+        self.tokenizer = ContinuousFeatureTokenizer(num_features, d_token)
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, d_token))
+
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_token,
+            nhead=n_heads,
+            dim_feedforward=d_ff,
+            dropout=dropout,
+            activation="gelu",
+            norm_first=True,      # Pre-Norm
+            batch_first=True      # [B, S, E] instead of [S, B, E]
+        )
+        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=n_blocks)
+        self.head = nn.Linear(d_token, 1)    # binary logit
+
+        # optional: init CLS
+        nn.init.trunc_normal_(self.cls_token, std=0.02)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        x: [B, num_features]  (float32 / float64)
+        return: [B] logits
+        """
+        tokens = self.tokenizer(x)                         # [B, F, d_token]
+        cls    = self.cls_token.expand(x.size(0), -1, -1)  # [B, 1, d_token]
+        tok_seq = torch.cat([cls, tokens], dim=1)          # [B, 1+F, d_token]
+
+        encoded = self.encoder(tok_seq)                    # shape preserved
+        cls_out = encoded[:, 0, :]                         # take CLS
+        return self.head(cls_out).squeeze(1)               # [B]

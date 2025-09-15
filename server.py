@@ -174,6 +174,8 @@ class Server:
             self.speeds = [random.randrange(13, 104) for _ in range(total_clients)]
         elif model_name == "MobileNet":
             self.speeds = [random.randrange(14, 112) for _ in range(total_clients)]
+        elif model_name == "FTTransformer":
+            self.speeds = [random.randrange(92, 740) for _ in range(total_clients)]
         else:
             raise ValueError(f"Model name '{model_name}' is not valid.")
         print(f"speeds_list = {self.speeds}")
@@ -582,7 +584,7 @@ class Server:
                 self.actions = [0 for i in range(len(self.selected_client))]
                 self.values = [0 for i in range(len(self.selected_client))]
                 self.old_log_probs = [0 for i in range(len(self.selected_client))]
-                voi_state_dict = self.voi_estimator.state_dict()
+                voi_state_dict = copy.deepcopy(self.voi_estimator.state_dict())
                 for i in self.selected_client:
                     client_id = self.list_clients[i]
                     logits = logit[i]
@@ -614,7 +616,7 @@ class Server:
             # Server validation
             accuracy = 0.0
             if save_parameters and validation and self.round_result:
-                if  data_name == "DOMAIN2" or data_name == "DOMAIN":
+                if  data_name == "DOMAIN2" or data_name == "DOMAIN" or data_name == "CICIDS":
                     self.round_result,loss, accuracy,precision,recall,f1 = self.validation.test(self.avg_state_dict, device)
                     infor = f"Round {self.num_round - self.round + 1}/{self.num_round} with {len(self.selected_client)} client(s). Final Result: loss: {loss:.4f}, accuracy: {accuracy:.4f}, precision: {precision:.4f},recall: {recall:.4f},f1: {f1:.4f} with training time: {max(self.training_time)}"
                     print(infor)
@@ -669,7 +671,7 @@ class Server:
             # Server validation
             accuracy = 0.0
             if save_parameters and validation and self.round_result:
-                if  data_name == "DOMAIN2" or data_name == "DOMAIN":
+                if  data_name == "DOMAIN2" or data_name == "DOMAIN" or data_name == "CICIDS":
                     self.round_result,loss, accuracy,precision,recall,f1 = self.validation.test(self.avg_state_dict, device)
                     infor = f"Round {self.num_round - self.round + 1}/{self.num_round} with {len(self.selected_client)} client(s). Final Result: loss: {loss:.4f}, accuracy: {accuracy:.4f}, precision: {precision:.4f},recall: {recall:.4f},f1: {f1:.4f} with training time: {max(self.training_time)}"
                     print(infor)
@@ -725,7 +727,7 @@ class Server:
             # Server validation
             accuracy = 0.0
             if save_parameters and validation and self.round_result:
-                if  data_name == "DOMAIN2" or data_name == "DOMAIN":
+                if  data_name == "DOMAIN2" or data_name == "DOMAIN" or data_name == "CICIDS":
                     self.round_result,loss, accuracy,precision,recall,f1 = self.validation.test(self.avg_state_dict, device)
                     infor = f"Round {self.num_round - self.round + 1}/{self.num_round} with {len(self.selected_client)} client(s). Final Result: loss: {loss:.4f}, accuracy: {accuracy:.4f}, precision: {precision:.4f},recall: {recall:.4f},f1: {f1:.4f} with training time: {max(self.training_time)}"
                     print(infor)
@@ -779,7 +781,7 @@ class Server:
             # Server validation
             accuracy = 0.0
             if save_parameters and validation and self.round_result:
-                if  data_name == "DOMAIN2" or data_name == "DOMAIN":
+                if  data_name == "DOMAIN2" or data_name == "DOMAIN" or data_name == "CICIDS":
                     self.round_result,loss, accuracy,precision,recall,f1 = self.validation.test(self.avg_state_dict, device)
                     infor = f"Round {self.num_round - self.round + 1}/{self.num_round} with {len(self.selected_client)} client(s). Final Result: loss: {loss:.4f}, accuracy: {accuracy:.4f}, precision: {precision:.4f},recall: {recall:.4f},f1: {f1:.4f} with training time: {max(self.training_time)}"
                     print(infor)
@@ -833,7 +835,7 @@ class Server:
             # Server validation
             accuracy = 0.0
             if save_parameters and validation and self.round_result:
-                if  data_name == "DOMAIN2" or data_name == "DOMAIN":
+                if  data_name == "DOMAIN2" or data_name == "DOMAIN" or data_name == "CICIDS":
                     self.round_result,loss, accuracy,precision,recall,f1 = self.validation.test(self.avg_state_dict, device)
                     infor = f"Round {self.num_round - self.round + 1}/{self.num_round} with {len(self.selected_client)} client(s). Final Result: loss: {loss:.4f}, accuracy: {accuracy:.4f}, precision: {precision:.4f},recall: {recall:.4f},f1: {f1:.4f} with training time: {max(self.training_time)}"
                     print(infor)
@@ -888,7 +890,7 @@ class Server:
             # Server validation
             accuracy = 0.0
             if save_parameters and validation and self.round_result:
-                if  data_name == "DOMAIN2" or data_name == "DOMAIN":
+                if  data_name == "DOMAIN2" or data_name == "DOMAIN" or data_name == "CICIDS":
                     self.round_result,loss, accuracy,precision,recall,f1 = self.validation.test(self.avg_state_dict, device)
                     infor = f"Round {self.num_round - self.round + 1}/{self.num_round} with {len(self.selected_client)} client(s). Final Result: loss: {loss:.4f}, accuracy: {accuracy:.4f}, precision: {precision:.4f},recall: {recall:.4f},f1: {f1:.4f} with training time: {max(self.training_time)}"
                     print(infor)
@@ -942,7 +944,7 @@ class Server:
             # Server validation
             accuracy = 0.0
             if save_parameters and validation and self.round_result:
-                if  data_name == "DOMAIN2" or data_name == "DOMAIN":
+                if  data_name == "DOMAIN2" or data_name == "DOMAIN" or data_name == "CICIDS":
                     self.round_result,loss, accuracy,precision,recall,f1 = self.validation.test(self.avg_state_dict, device)
                     infor = f"Round {self.num_round - self.round + 1}/{self.num_round} with {len(self.selected_client)} client(s). Final Result: loss: {loss:.4f}, accuracy: {accuracy:.4f}, precision: {precision:.4f},recall: {recall:.4f},f1: {f1:.4f} with training time: {max(self.training_time)}"
                     print(infor)
@@ -1007,24 +1009,6 @@ class Server:
             #count_labels = np.zeros(num_labels)
             if algorithm_name == "our":
                 epoch = 1
-                if state_dict is None:
-                    if data_name == "DOMAIN2":
-                        if model_name == "Transformer":
-                            model = src.Model.PositionalEncodingTransformer().to(device)
-                        elif model_name == "CNN":
-                            model = src.Model.CNNClassifier().to(device)
-                        else:
-                            raise ValueError(f"Model name '{model_name}' is not valid.")
-                    elif data_name == "CIFAR10":
-                        if model_name == "ResNet":
-                            model = src.Model.ResNet18().to(device)
-                        elif model_name == "MobileNet":
-                            model = src.Model.MobileNetV2().to(device)
-                        else:
-                            raise ValueError(f"Model name '{model_name}' is not valid.")
-                    else:
-                        raise ValueError(f"Data name '{data_name}' is not valid.")
-                    state_dict = model.state_dict()
                 self.state_dict_server = state_dict
                 if  (self.round-self.num_round) % cluster_iter == 0:
                     self.cluster_state = True
@@ -1080,24 +1064,6 @@ class Server:
                         self.send_to_response(client_id, pickle.dumps(response))
             elif algorithm_name == "csfedavg":
                 epoch = 1
-                if state_dict is None:
-                    if data_name == "DOMAIN2":
-                        if model_name == "Transformer":
-                            model = src.Model.PositionalEncodingTransformer().to(device)
-                        elif model_name == "CNN":
-                            model = src.Model.CNNClassifier().to(device)
-                        else:
-                            raise ValueError(f"Model name '{model_name}' is not valid.")
-                    elif data_name == "CIFAR10":
-                        if model_name == "ResNet":
-                            model = src.Model.ResNet18().to(device)
-                        elif model_name == "MobileNet":
-                            model = src.Model.MobileNetV2().to(device)
-                        else:
-                            raise ValueError(f"Model name '{model_name}' is not valid.")
-                    else:
-                        raise ValueError(f"Data name '{data_name}' is not valid.")
-                    state_dict = model.state_dict()
                 self.state_dict_server = state_dict
                 for i in self.selected_client:
                     client_id = self.list_clients[i]
@@ -1123,24 +1089,6 @@ class Server:
                     self.send_to_response(client_id, pickle.dumps(response))
             elif algorithm_name == "fedcls":
                 epoch = 1
-                if state_dict is None:
-                    if data_name == "DOMAIN2":
-                        if model_name == "Transformer":
-                            model = src.Model.PositionalEncodingTransformer().to(device)
-                        elif model_name == "CNN":
-                            model = src.Model.CNNClassifier().to(device)
-                        else:
-                            raise ValueError(f"Model name '{model_name}' is not valid.")
-                    elif data_name == "CIFAR10":
-                        if model_name == "ResNet":
-                            model = src.Model.ResNet18().to(device)
-                        elif model_name == "MobileNet":
-                            model = src.Model.MobileNetV2().to(device)
-                        else:
-                            raise ValueError(f"Model name '{model_name}' is not valid.")
-                    else:
-                        raise ValueError(f"Data name '{data_name}' is not valid.")
-                    state_dict = model.state_dict()
                 self.state_dict_server = state_dict
                 print(f"List client: {self.list_clients}")
                 for i in self.selected_client:
@@ -1167,24 +1115,6 @@ class Server:
                     self.send_to_response(client_id, pickle.dumps(response))
             elif algorithm_name == "fedrhlp":
                 epoch = 1
-                if state_dict is None:
-                    if data_name == "DOMAIN2":
-                        if model_name == "Transformer":
-                            model = src.Model.PositionalEncodingTransformer().to(device)
-                        elif model_name == "CNN":
-                            model = src.Model.CNNClassifier().to(device)
-                        else:
-                            raise ValueError(f"Model name '{model_name}' is not valid.")
-                    elif data_name == "CIFAR10":
-                        if model_name == "ResNet":
-                            model = src.Model.ResNet18().to(device)
-                        elif model_name == "MobileNet":
-                            model = src.Model.MobileNetV2().to(device)
-                        else:
-                            raise ValueError(f"Model name '{model_name}' is not valid.")
-                    else:
-                        raise ValueError(f"Data name '{data_name}' is not valid.")
-                    state_dict = model.state_dict()
                 self.state_dict_server = state_dict
                 print(f"List client: {self.list_clients}")
                 self.selected_client = [_ for _ in range(total_clients)]
@@ -1213,24 +1143,6 @@ class Server:
                 self.list_clients = []
             elif algorithm_name == "haccs":
                 epoch = 1
-                if state_dict is None:
-                    if data_name == "DOMAIN2":
-                        if model_name == "Transformer":
-                            model = src.Model.PositionalEncodingTransformer().to(device)
-                        elif model_name == "CNN":
-                            model = src.Model.CNNClassifier().to(device)
-                        else:
-                            raise ValueError(f"Model name '{model_name}' is not valid.")
-                    elif data_name == "CIFAR10":
-                        if model_name == "ResNet":
-                            model = src.Model.ResNet18().to(device)
-                        elif model_name == "MobileNet":
-                            model = src.Model.MobileNetV2().to(device)
-                        else:
-                            raise ValueError(f"Model name '{model_name}' is not valid.")
-                    else:
-                        raise ValueError(f"Data name '{data_name}' is not valid.")
-                    state_dict = model.state_dict()
                 self.state_dict_server = state_dict
                 print(f"List client: {self.list_clients}")
                 for i in self.selected_client:
@@ -1257,24 +1169,6 @@ class Server:
                     self.send_to_response(client_id, pickle.dumps(response))
             elif algorithm_name == "hicsfl":
                 epoch = 1
-                if state_dict is None:
-                    if data_name == "DOMAIN2":
-                        if model_name == "Transformer":
-                            model = src.Model.PositionalEncodingTransformer().to(device)
-                        elif model_name == "CNN":
-                            model = src.Model.CNNClassifier().to(device)
-                        else:
-                            raise ValueError(f"Model name '{model_name}' is not valid.")
-                    elif data_name == "CIFAR10":
-                        if model_name == "ResNet":
-                            model = src.Model.ResNet18().to(device)
-                        elif model_name == "MobileNet":
-                            model = src.Model.MobileNetV2().to(device)
-                        else:
-                            raise ValueError(f"Model name '{model_name}' is not valid.")
-                    else:
-                        raise ValueError(f"Data name '{data_name}' is not valid.")
-                    state_dict = model.state_dict()
                 self.state_dict_server = state_dict
                 self.selected_client = [_ for _ in range(total_clients)]
                 print(f"List client: {self.list_clients}")
@@ -1303,24 +1197,7 @@ class Server:
                 self.list_clients = []
             elif algorithm_name == "feel":
                 epoch = 1
-                if state_dict is None:
-                    if data_name == "DOMAIN2":
-                        if model_name == "Transformer":
-                            model = src.Model.PositionalEncodingTransformer().to(device)
-                        elif model_name == "CNN":
-                            model = src.Model.CNNClassifier().to(device)
-                        else:
-                            raise ValueError(f"Model name '{model_name}' is not valid.")
-                    elif data_name == "CIFAR10":
-                        if model_name == "ResNet":
-                            model = src.Model.ResNet18().to(device)
-                        elif model_name == "MobileNet":
-                            model = src.Model.MobileNetV2().to(device)
-                        else:
-                            raise ValueError(f"Model name '{model_name}' is not valid.")
-                    else:
-                        raise ValueError(f"Data name '{data_name}' is not valid.")
-                    state_dict = model.state_dict()
+
                 self.state_dict_server = state_dict
                 self.selected_client = [_ for _ in range(total_clients)]
                 print(f"List client: {self.list_clients}")
@@ -1601,6 +1478,28 @@ class Server:
 
             self.avg_state_dict = copy.deepcopy(avg_state_dict)
             
+    def avg_all_parameters(self):
+        """
+        Consuming all client's weight from `self.all_model_parameters` - a list contain all client's weight
+        :return: Global weight on `self.avg_state_dict`
+        """
+        # Average all client parameters
+        num_models = len(self.all_model_parameters)
+
+        if num_models == 0:
+            return
+
+        self.avg_state_dict = self.all_model_parameters[0]['weight']
+        all_client_sizes = [item['size'] for item in self.all_model_parameters]
+
+        for key in self.avg_state_dict.keys():
+            if self.avg_state_dict[key].dtype != torch.long:
+                self.avg_state_dict[key] = sum(self.all_model_parameters[i]['weight'][key] * all_client_sizes[i]
+                                               for i in range(num_models)) / sum(all_client_sizes)
+            else:
+                self.avg_state_dict[key] = sum(self.all_model_parameters[i]['weight'][key] * all_client_sizes[i]
+                                               for i in range(num_models)) // sum(all_client_sizes)
+
 
 def signal_handler(sig, frame):
     print("\nCatch stop signal Ctrl+C. Stop the program.")
